@@ -4,6 +4,9 @@
 (include-book "tools/bstar" :dir :system)
 (include-book "centaur/fty/top" :dir :system) ; for defalist, etc.
 (include-book "projects/smtlink/top" :dir :system)
+(value-triple (tshell-ensure))
+(add-default-hints '((SMT::SMT-computed-hint clause)))
+
 (include-book "util")
 
 ;; -------------------------------------
@@ -35,9 +38,12 @@
   :val-type sig-value-p
   :true-listp t)
 
-(defalist gtrace
-  :key-type rationalp ;; time
-  :val-type gstate-p
+(defprod gstate-t
+  ((statet rationalp)
+   (statev gstate-p)))
+
+(deflist gtrace
+  :elt-type gstate-t-p
   :true-listp t)
 
 (define sigs-in-bool-table ((sigs sig-path-listp)
@@ -51,7 +57,7 @@
        (first (car (sig-path-list-fix sigs)))
        (rest (cdr (sig-path-list-fix sigs)))
        (first-v (assoc-equal first (gstate-fix st)))
-       ((unless (consp (smt::magic-fix 'sig-path_booleanp first-v)))
+       ((unless (consp (smt::magic-fix 'sig-path_sig-value first-v)))
         nil))
     (sigs-in-bool-table rest st))
   )
@@ -67,7 +73,7 @@
        ((unless (consp (gtrace-fix tr))) t)
        (first (car (gtrace-fix tr)))
        (rest (cdr (gtrace-fix tr)))
-       ((unless (sigs-in-bool-table sigs (cdr first))) nil))
+       ((unless (sigs-in-bool-table sigs (gstate-t->statev first))) nil))
     (sigs-in-bool-trace sigs rest)))
 
 ;; --------------------------------------
@@ -98,7 +104,6 @@
 ;; stepping function
 (define asp-sigs ((a asp-stage-p))
   :returns (l sig-path-listp)
-  :guard-debug t
   (b* ((a (asp-stage-fix a))
        (go-full (asp-stage->go-full a))
        (go-empty (asp-stage->go-empty a))
@@ -214,7 +219,7 @@
        (implies (not (equal (sig-value->value full-next)
                             (sig-value->value full-internal-prev)))
                 (<= tnext
-                    (+ (sig-value->time full-internal-next) ;; Should this be full-internal-prev??
+                    (+ (sig-value->time full-internal-prev) ;; Should this be full-internal-prev??
                        (interval->hi delta-t2)))))
       t)
      ((and
@@ -228,7 +233,7 @@
        (implies (equal (sig-value->value empty-next)
                        (sig-value->value full-internal-prev))
                 (<= tnext
-                    (+ (sig-value->time full-internal-next) ;; Should this be full-internal-prev??
+                    (+ (sig-value->time full-internal-prev) ;; Should this be full-internal-prev??
                        (interval->hi delta-t2)))))
       t)
      ;; empty ^ go_full ->(delta_t1) full_internal
@@ -296,24 +301,42 @@
      ))
   )
 
+(define asp-valid ((a asp-stage-p)
+                   (tr gtrace-p))
+  :returns (ok booleanp)
+  :measure (len (gtrace-fix tr))
+  :hints (("Goal" :in-theory (enable gtrace-fix)))
+  (b* ((a (asp-stage-fix a))
+       ((unless (consp (gtrace-fix (cdr (gtrace-fix tr))))) t)
+       (first (car (gtrace-fix tr)))
+       (rest (cdr (gtrace-fix tr)))
+       (second (car (gtrace-fix rest)))
+       ((unless (asp-step a
+                          (gstate-t->statet first)
+                          (gstate-t->statev first)
+                          (gstate-t->statet second)
+                          (gstate-t->statev second)))
+        nil))
+    (asp-valid a rest)))
+
 ;; -------------------------------------------------
 ;;             environment
 
 (defprod env
-  ((in sig-path-p)
-   (out sig-path-p)
+  ((input sig-path-p)
+   (output sig-path-p)
    (delta-env interval-p)
    ))
 
 (define env-sigs ((e env-p))
   :returns (l sig-path-listp)
   (b* ((e (env-fix e))
-       (in (env->in e))
-       (out (env->out e)))
-    (cons in
+       (input (env->input e))
+       (output (env->output e)))
+    (cons input
           (sig-path-list-fix
-           (cons out (sig-path-list-fix
-                           nil))))))
+           (cons output (sig-path-list-fix
+                         nil))))))
 
 (define env-step ((e env-p)
                   (tprev rationalp) (prev gstate-p)
@@ -326,21 +349,21 @@
        (next (gstate-fix next))
        ((unless (sigs-in-bool-table (env-sigs e) prev)) nil)
        ((unless (sigs-in-bool-table (env-sigs e) next)) nil)
-       (in (env->in e))
-       (out (env->out e))
+       (input (env->input e))
+       (output (env->output e))
        (delta-env (env->delta-env e))
        (in-prev (cdr (smt::magic-fix
                       'sig-path_sig-value
-                      (assoc-equal in (gstate-fix prev)))))
+                      (assoc-equal input (gstate-fix prev)))))
        (in-next (cdr (smt::magic-fix
                       'sig-path_sig-value
-                      (assoc-equal in (gstate-fix next)))))
+                      (assoc-equal input (gstate-fix next)))))
        (out-prev (cdr (smt::magic-fix
                        'sig-path_sig-value
-                       (assoc-equal out (gstate-fix prev)))))
+                       (assoc-equal output (gstate-fix prev)))))
        (out-next (cdr (smt::magic-fix
                        'sig-path_sig-value
-                       (assoc-equal out (gstate-fix next)))))
+                       (assoc-equal output (gstate-fix next)))))
        )
     (cond
      ;; not(out) ->(delta_env_inf) out
@@ -382,21 +405,120 @@
              ))))
   )
 
+(define env-valid ((e env-p)
+                   (tr gtrace-p))
+  :returns (ok booleanp)
+  :measure (len (gtrace-fix tr))
+  :hints (("Goal" :in-theory (enable gtrace-fix)))
+  (b* ((e (env-fix e))
+       ((unless (consp (gtrace-fix (cdr (gtrace-fix tr))))) t)
+       (first (car (gtrace-fix tr)))
+       (rest (cdr (gtrace-fix tr)))
+       (second (car (gtrace-fix rest)))
+       ((unless (env-step e
+                          (gstate-t->statet first)
+                          (gstate-t->statev first)
+                          (gstate-t->statet second)
+                          (gstate-t->statev second)))
+        nil))
+    (env-valid e rest)))
+
 ;; ------------------------------------------------------------
 ;;         define connection function of env to an asp-stage
 
 (define asp-connection ((a asp-stage-p) (el env-p) (er env-p))
   :returns (ok booleanp)
   (and (equal (asp-stage->go-full a)
-              (env->out el))
+              (env->output el))
        (equal (asp-stage->empty a)
-              (env->in el))
+              (env->input el))
        (equal (asp-stage->go-empty a)
-              (env->out er))
+              (env->output er))
        (equal (asp-stage->full a)
-              (env->in er))
+              (env->input er))
        )
   )
 
 ;; -----------------------------------------------------------------
+;;       define how we count symbols in the fifo
+(defoption maybe-integer integerp)
 
+(define sym-count ((a asp-stage-p) (curr gstate-p))
+  :returns (count maybe-integer-p)
+  :guard-hints (("Goal" :in-theory (enable sigs-in-bool-table asp-sigs)))
+  (b* ((a (asp-stage-fix a))
+       (curr (gstate-fix curr))
+       ((unless (sigs-in-bool-table (asp-sigs a) curr))
+        (maybe-integer-fix nil))
+       (go-full (asp-stage->go-full a))
+       (go-empty (asp-stage->go-empty a))
+       (full (asp-stage->full a))
+       (empty (asp-stage->empty a))
+       (go-full-curr (cdr (smt::magic-fix
+                           'sig-path_sig-value
+                           (assoc-equal go-full (gstate-fix curr)))))
+       (go-empty-curr (cdr (smt::magic-fix
+                            'sig-path_sig-value
+                            (assoc-equal go-empty (gstate-fix curr)))))
+       (full-curr (cdr (smt::magic-fix
+                        'sig-path_sig-value
+                        (assoc-equal full (gstate-fix curr)))))
+       (empty-curr (cdr (smt::magic-fix
+                         'sig-path_sig-value
+                         (assoc-equal empty (gstate-fix curr))))))
+    (cond ((and (not (and (sig-value->value go-full-curr)
+                          (sig-value->value empty-curr)))
+                (not (and (sig-value->value go-empty-curr)
+                          (sig-value->value full-curr))))
+           (maybe-integer-some 1))
+          ((and (sig-value->value go-full-curr)
+                (sig-value->value empty-curr))
+           (maybe-integer-some 1))
+          ((and (sig-value->value go-empty-curr)
+                (sig-value->value full-curr))
+           (maybe-integer-some 0))
+          (t
+           (maybe-integer-fix nil)))))
+
+(defthm simple-yan
+  (implies (and (asp-stage-p a)
+                (env-p el)
+                (env-p er)
+                (asp-connection a el er)
+                (gtrace-p tr)
+                (env-valid el tr)
+                (env-valid er tr)
+                (asp-valid a tr)
+                (valid-interval (asp-stage->delta-t1 a))
+                (valid-interval (asp-stage->delta-t2 a))
+                (valid-interval (env->delta-env el))
+                (valid-interval (env->delta-env er))
+                (consp (gtrace-fix tr))
+                (equal (sym-count a (gstate-t->statev (car (gtrace-fix tr))))
+                       (maybe-integer-some 1)))
+           (equal (sym-count a
+                             (gstate-t->statev
+                              (car (gtrace-fix (cdr (gtrace-fix tr))))))
+                             (maybe-integer-some 1)))
+  :hints (("Goal"
+           :smtlink
+           (:fty (asp-stage env interval gtrace sig-value gstate gstate-t
+                            sig-path-list sig-path sig maybe-integer)
+                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                           (st gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 5)
+                             (sigs-in-bool-trace :formals ((sigs sig-path-listp)
+                                                           (tr gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 1)
+                             (env-valid :formals ((e env-p)
+                                                  (tr gtrace-p))
+                                        :returns ((ok booleanp))
+                                        :level 1)
+                             (asp-valid :formals ((a asp-stage-p)
+                                                  (tr gtrace-p))
+                                        :returns ((ok booleanp))
+                                        :level 1)
+                             )
+                 ))))
