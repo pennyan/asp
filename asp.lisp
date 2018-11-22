@@ -1,4 +1,5 @@
 (in-package "ASP")
+;; simplify(gstate_sub_t.statev(gtrace.car(gtrace.cdr(m[tr])))).sexpr()
 
 (include-book "std/util/define" :dir :system)
 (include-book "tools/bstar" :dir :system)
@@ -494,6 +495,7 @@
                 (valid-interval (env->delta-env el))
                 (valid-interval (env->delta-env er))
                 (consp (gtrace-fix tr))
+                (consp (gtrace-fix (cdr (gtrace-fix tr))))
                 (equal (sym-count a (gstate-t->statev (car (gtrace-fix tr))))
                        (maybe-integer-some 1)))
            (equal (sym-count a
@@ -511,7 +513,7 @@
                              (sigs-in-bool-trace :formals ((sigs sig-path-listp)
                                                            (tr gstate-p))
                                                  :returns ((ok booleanp))
-                                                 :level 1)
+                                                 :level 2)
                              (env-valid :formals ((e env-p)
                                                   (tr gtrace-p))
                                         :returns ((ok booleanp))
