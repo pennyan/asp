@@ -205,7 +205,22 @@
                                  'sig-path_sig-value
                                  (assoc-equal full-internal
                                               (gstate-fix next)))))
-       )
+       ((unless (and (nondecreasing-time tprev tnext)
+                     (time-consistent-when-signal-doesnt-change empty-prev empty-next)
+                     (time-consistent-when-signal-doesnt-change full-prev full-next)
+                     (time-consistent-when-signal-doesnt-change go-empty-prev go-empty-next)
+                     (time-consistent-when-signal-doesnt-change go-full-prev
+                                                                go-full-next)
+                     (time-consistent-when-signal-doesnt-change full-internal-prev
+                                                                full-internal-next)
+                     (time-set-when-signal-change empty-prev empty-next tnext)
+                     (time-set-when-signal-change full-prev full-next tnext)
+                     (time-set-when-signal-change go-empty-prev go-empty-next tnext)
+                     (time-set-when-signal-change go-full-prev go-full-next tnext)
+                     (time-set-when-signal-change full-internal-prev full-internal-next
+                                                  tnext)
+                     ))
+        nil))
     (cond
      ;; full_interval ->(delta_t2) full ^ not(empty)
      ;; not(full_interval) ->(delta_t2) not(full) ^ empty
@@ -216,11 +231,11 @@
                 (> tnext
                    (+ (sig-value->time full-internal-prev)
                       (interval->lo delta-t2))))
-       ;; if full hasn't changed yet, the current time should be
+       ;; if full hasn't changed yet, the current time should be less than hi
        (implies (not (equal (sig-value->value full-next)
                             (sig-value->value full-internal-prev)))
                 (<= tnext
-                    (+ (sig-value->time full-internal-prev) ;; Should this be full-internal-prev??
+                    (+ (sig-value->time full-internal-prev)
                        (interval->hi delta-t2)))))
       t)
      ((and
@@ -230,11 +245,11 @@
                 (> tnext
                    (+ (sig-value->time full-internal-prev)
                       (interval->lo delta-t2))))
-       ;; if empty hasn't changed yet, the current time should be
+       ;; if empty hasn't changed yet, the current time should be less than hi
        (implies (equal (sig-value->value empty-next)
                        (sig-value->value full-internal-prev))
                 (<= tnext
-                    (+ (sig-value->time full-internal-prev) ;; Should this be full-internal-prev??
+                    (+ (sig-value->time full-internal-prev)
                        (interval->hi delta-t2)))))
       t)
      ;; empty ^ go_full ->(delta_t1) full_internal
@@ -248,7 +263,8 @@
                      (> tnext
                         (+ (sig-value->time go-full-prev)
                            (interval->lo delta-t1)))))
-       ;; if full_internal hasn't changed yet, the current time should be
+       ;; if full_internal hasn't changed yet, the current time should be less
+       ;; than hi
        (implies (and (equal t (sig-value->value empty-prev))
                      (equal t (sig-value->value go-full-prev))
                      (not (equal (sig-value->value full-internal-next)
@@ -271,7 +287,8 @@
                      (> tnext
                         (+ (sig-value->time go-empty-prev)
                            (interval->lo delta-t1)))))
-       ;; if full_internal hasn't changed yet, the current time should be
+       ;; if full_internal hasn't changed yet, the current time should be less
+       ;; than hi
        (implies (and (equal t (sig-value->value full-prev))
                      (equal t (sig-value->value go-empty-prev))
                      (equal (sig-value->value full-internal-next)
@@ -284,21 +301,7 @@
                             (interval->hi delta-t1))))))
       t)
      ;; Other cases are invalid steps
-     (t (and (nondecreasing-time tprev tnext)
-             (time-consistent-when-signal-doesnt-change empty-prev empty-next)
-             (time-consistent-when-signal-doesnt-change full-prev full-next)
-             (time-consistent-when-signal-doesnt-change go-empty-prev go-empty-next)
-             (time-consistent-when-signal-doesnt-change go-full-prev
-                                                        go-full-next)
-             (time-consistent-when-signal-doesnt-change full-internal-prev
-                                                        full-internal-next)
-             (time-set-when-signal-change empty-prev empty-next tnext)
-             (time-set-when-signal-change full-prev full-next tnext)
-             (time-set-when-signal-change go-empty-prev go-empty-next tnext)
-             (time-set-when-signal-change go-full-prev go-full-next tnext)
-             (time-set-when-signal-change full-internal-prev full-internal-next
-                                          tnext)
-             ))
+     (t nil)
      ))
   )
 
@@ -365,13 +368,20 @@
        (out-next (cdr (smt::magic-fix
                        'sig-path_sig-value
                        (assoc-equal output (gstate-fix next)))))
-       )
+       ((unless (and (nondecreasing-time tprev tnext)
+                     (time-consistent-when-signal-doesnt-change in-prev in-next)
+                     (time-consistent-when-signal-doesnt-change out-prev out-next)
+                     (time-set-when-signal-change in-prev in-next tnext)
+                     (time-set-when-signal-change out-prev out-next tnext)
+                     ))
+        nil))
     (cond
      ;; not(out) ->(delta_env_inf) out
      ((and
        ;; if out changes, it should change after lo
-       (implies (not (equal (sig-value->value out-prev)
-                            (sig-value->value out-next)))
+       (implies (and (not (equal (sig-value->value out-prev)
+                                 (sig-value->value out-next)))
+                     (equal (sig-value->value out-next) t))
                 (> tnext
                    (+ (sig-value->time out-prev)
                       (interval->lo delta-env)))))
@@ -379,8 +389,9 @@
      ;; out ^ in ->(delta_env) not(out)
      ((and
        ;; if out changes, it should change after lo
-       (implies (not (equal (sig-value->value out-prev)
-                            (sig-value->value out-next)))
+       (implies (and (not (equal (sig-value->value out-prev)
+                                 (sig-value->value out-next)))
+                     (equal (sig-value->value out-next) nil))
                 (and (> tnext
                         (+ (sig-value->time in-prev)
                            (interval->lo delta-env)))
@@ -398,12 +409,7 @@
                          (+ (sig-value->time out-prev)
                             (interval->hi delta-env))))))
       t)
-     (t (and (nondecreasing-time tprev tnext)
-             (time-consistent-when-signal-doesnt-change in-prev in-next)
-             (time-consistent-when-signal-doesnt-change out-prev out-next)
-             (time-set-when-signal-change in-prev in-next tnext)
-             (time-set-when-signal-change out-prev out-next tnext)
-             ))))
+     (t nil)))
   )
 
 (define env-valid ((e env-p)
