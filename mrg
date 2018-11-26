@@ -1,0 +1,188 @@
+Message actions   Reply to sender Reply to list or to sender and all recipients Forward the message   Open in new window
+Subject: asp-stage.lisp
+Contact photo
+From	Mark Greenstreet	Date	Fri 19:06
+Message Body
+(full-internal-target ((full signal-p) (empty signal-p) (go-full signal-p) (go-empty signal-p))
+  :returns (mv (target booleanp) (valid booleanp))
+  (b* (((signal-p full) (signal-fix full))
+       ((signal-p empty) (signal-fix empty))
+       ((signal-p go-full) (signal-fix go-full))
+       ((signal-p go-empty) (signal-fix go-empty))
+       ((if (not (or (and go-full.v empty.v) (and go-empty.v full.v)))) (mv full-internal.v t))
+       ((if (not (and go-full.v empty.v))) (mv nil t))
+       ((if (not (and go-empty.v full.v))) (mv t t)))
+      (mv nil nil)))
+
+(full-internal-trigger-time
+ ((full signal-p) (empty signal-p)
+  (go-full signal-p) (go-empty signal-p)
+  (full-internal signal-p))
+  :returns (trigger-time maybe-rationalp)
+  (b* (((signal-p full) (signal-fix full))
+       ((signal-p empty) (signal-fix empty))
+       ((signal-p go-full) (signal-fix go-full))
+       ((signal-p go-empty) (signal-fix go-empty))
+       ((mv target valid) (full-internal-target full empty, go-full go-empty full-internal))
+       ((unless valid)
+        (min (max go-empty.t full.t) (max go-full.t empty.t)))
+       ((if (equal target full-internal.v)) nil)
+       ((if (equal target t)) (max go-full.t empty.t))
+       ((if (equal target nil)) (max go-empty.t full.t)))
+      (mbt nil)))
+
+(signal-transition-constraints
+ ((sig-prev signal-p) (sig-next signal-p) (time-next rationalp)
+  (target booleanp) (valid booleanp) (trigger-time rational-p) (delay rational-interval-p))
+ :returns (constraints booleanp)
+ (and (implies
+       valid
+       (and (implies (equal sig-prev.v target) (equal sig-next.v sig-prev.v))
+        (implies (not (equal sig-prev.v target))
+         (and (implies (equal sig-prev.v sig-next.v))
+                       (< time-next (+ trigger-time delay.max))
+              (implies (not (equal sig-prev.v sig-next.v))
+                   (>= time-next (+ trigger-time delay.min)))))))
+      (implies
+       (and (not valid) (not (equal sig-prev.v sig-next.v)))
+       (<= (+ trigger-time delay.min) time-next))))
+
+;; While trying to write the invariant, I realized that the model for
+;; the environment will need signals corresponding to full-internal.
+;; For example, when (and go-full empty) holds, the state is enabled
+;; to set full-internal to t and then set empty to nil.  Likewise, the
+;; environment can set go-full to nil after a suitable delay.  We must
+;; allow the case where the environment is faster than the stage (but
+;; not too much faster), and the case where the stage is faster than
+;; the environment (but, again, not too much faster).  What happens
+;; if the stage is faster than the environment.  Then, we reach a
+;; state where (and go-full (not empty)) holds and go-full is obligated
+;; to transition to nil in the near future.  How do we know this from
+;; the state?  Right now, we have nothing to distinguish between the
+;; traces:
+;;   go-full        t     t    t     ;; go-full is obligated to transition to nil
+;;   empty          t     t    nil
+;;   full-internal  nil   t    t
+;; versus
+;;   go-full        t     t    nil   nil   t     ;; left neighbour has new data
+;;   empty          t     t    t     nil   nil
+;;   full-internal  nil   t    t       t   t     ;; but we are still full
+;; Why does this matter.  Well in the upper trace, if the environment is
+;; *really* slow, we could get (I'm showing an example where the stage
+;; to our right is initially empty)
+;;   go-full        t     t     t     t     t    t
+;;   empty          t     t     nil   nil   nil  t
+;;   full-internal  nil   t     t     t     nil  nil
+;;   full           nil   nil   nil   t     t    nil
+;;   go-empty       t     t     t     t     t    nil
+;; Now, the stage can set full-internal to t, but we don't have a new value
+;; from the left.  On the other hand, the corresponding extension of the second
+;; trace is
+;;   go-full        t     t     nil   nil   t     t
+;;   empty          t     t     t     nil   nil   t
+;;   full-internal  nil   t     t     t     nil   nil
+;;   full           nil   nil   nil   t     t     nil
+;;   go-empty       t     t     t     t     t     nil
+;; Now, the stage can set full-internal to t, and that's OK because we have
+;; a new value from the left.
+;;
+;; I will assume that the environment controls the signals go-full and
+;; go-empty.  Furthermore, I'll assume signals called go-full-internal
+;; and go-empty-internal.  The transitions are:
+
+(enables (and empty go-full)      ;; guard
+         (update left-internal nil delta_default))  ;; action: (update target value delay)
+(enables (not (eq left-internal go-full))
+         (update go-full left-internal delta_default))
+(enables (not go-full)
+         (update left-internal t (interval delta_default.lo +infinity)))
+
+;; and likewise for the right-environment -- do you want me to cut/paste/edit?
+;; Yan: no thanks.
+  
+
+
+;; notation: For any signal, sig, sig.v is the boolean value of the signal
+;;   and sig.t is the time at which it acquired that value.  time-now is
+;;   the time associated with this state.  I'll probably add sig.d, the
+;;   associated data value (or "symbol") in a later, more refined version
+;;   of the proposed invariant.  Let's prove this one first.
+;; Most of the clauses of this invariant say that the values and times
+;;   of signals are ones they can get according to the rules for a step
+;;   for the component that drives the signal.  In other words, this says
+;;   that the current state is one that could be reached by the rules
+;;   for individual transitions.  You may think this is redundant.  I
+;;   recommend trying it first.  Once ACL2+Smtlink can prove it, try
+;;   deleting clauses to see if any are irrelevant.
+(and
+ ;; constraints on empty, go-full, and full-internal
+ ;; if full-internal is excited to go true but hasn't yet,
+ ;;   then time-now is less than the max delay for full-internal.
+ (implies (and empty.v go-full.v (not full-internal.v))
+          (> (+ (max empty.t go-full.t) delta.max) time-now))
+ ;; if full-internal is true and empty is still true
+ ;;   then  full-internal went high at least delta.min after empty went high
+ ;;     and time-now is less than the max delay for empty
+ (implies (and empty.v full-internal.v)
+          (and (<= (+ empty.t delta.min) full-internal.t)))
+           
+ ;; if empty, go-full, and full-internal are all true,
+ ;;   then full-internal must have recently gone high, and the
+ ;;   high value on go-full is the one that enabled full-internal to go high
+ ;;   Therefore, full-internal went high at least delta.min after go-full.
+ (implies (and empty.v go-full.v full-internal.v)
+          (and (>= full-internal.t (+ go-full.t delta.min)))
+           (<= full-internal.t (+ (max empty.t go-full.t) delta.max)))
+ ;; empty tracks not full-internal
+ (implies (equal empty.v (not full-internal.v))
+          (and (<= (+ full-internal.t delta.min) empty.t)
+               (<= empty.t (+ full-internal.t delta.max))))
+ (implies (equal empty.v full-internal.v)
+      (> (+ full-internal.t delta.max) time-now))
+ ;; 
+ ;; the corresponding constraints for full, go-empty, and full-internal
+ (yan will do this)
+ ;; 
+ ;; the left environment
+ ;; 
+ ;; timing constraints for our interaction with the environment
+ ;; constraints for empty and go-full
+ (implies (and empty.v go-full.v (not full-internal.v)) ;; full-internal fated to go to t
+          (< (hi (full-internal-next-t ...))
+         (lo (go-full-next-nil ...))))
+ (implies (and empty.v (or go-full.v full-internal.v))  ;; empty fated to go to nil
+          (< (hi (empty-next-nil ...))
+         (lo (go-full-next-t ...))))
+ (implies (and go-full.v (or empty.v (not left-internal.v)))  ;; go-full fated to go to nil
+          (< (hi (go-full-next-nil ...))
+         (lo (empty-next-t go-full empty full-internal full))))
+ ;; constraints for full and go-empty
+ (yan wants to write these)
+ ...)
+
+
+;; go-full-next-nil: time interval bound the next time go-full will
+;;   transition to nil
+(define go-full-next-nil (go-full left-internal empty maybe-other-stuff)
+  :returns (bounds time-interval-p)
+  (b* (((if (and go-full.v empty.v left-internal.v))
+        (time-interval (+ (max go-full.t empty.t) (* 2 delta.min))
+                   (+ (max go-full.t empty.t) (* 2 delta.max))))
+       ((if (not left-internal.v))
+        (time-interval (+ left-internal.t delta.min)
+                   (+ left-internal.t delta.max))))
+      'who-knows?))
+
+(define go-full-next-t (go-full left-internal empty maybe-other-stuff)
+  (b* (((if (and go-full.v empty.v left-internal.v))
+        (time-interval (+ (max go-full.t empty.t) (* 4 delta.min))
+                   infinity))
+       ((if (not left-internal.v))
+        (time-interval (+ left-internal.t (* 3 delta.min))
+                   infinity))
+       ((if (and (not go-full.v) left-internal.v)
+        (time-interval (+ left-internal.t delta.min)
+                   (+ left-internal.t delta.max)))))
+      'who-knows?))
+
+ ;; Take some time off and enjoy your weekend 
