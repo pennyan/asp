@@ -83,20 +83,14 @@
 (defoption maybe-rational rationalp)
 
 (defprod interval
-  ((lo maybe-rational-p)
-   (hi maybe-rational-p)))
+  ((lo rationalp)
+   (hi rationalp)))
 
 (define valid-interval ((i interval-p))
   :returns (ok booleanp)
-  (b* ((i (interval-fix i))
-       ((if (and (equal (interval->hi i) (maybe-rational-fix nil))
-                 (not (equal (interval->hi i) (maybe-rational-fix nil)))))
-        (> (maybe-rational-some->val (interval->lo i)) 0))
-       ((if (and (not (equal (interval->lo i) (maybe-rational-fix nil)))
-                 (not (equal (interval->hi i) (maybe-rational-fix nil)))))
-        (< (maybe-rational-some->val (interval->lo i))
-           (maybe-rational-some->val (interval->hi i)))))
-    t))
+  (b* ((i (interval-fix i)))
+    (and (> (interval->lo i) 0)
+         (< (interval->lo i) (interval->hi i)))))
 
 (defprod asp-stage
   ((go-full sig-path-p)
@@ -150,7 +144,7 @@
     (make-target-tuple
      :target nil
      :valid nil)))
-stop
+
 (define full-internal-trigger-time ((full sig-value-p) (empty sig-value-p)
                                     (go-full sig-value-p) (go-empty sig-value-p)
                                     (full-internal sig-value-p))
@@ -680,7 +674,11 @@ stop
        (li-time
         (left-internal-trigger-time left-internal-prev empty-prev
                                     go-full-prev))
-       ((unless (cond ((equal li-time (maybe-rational-fix nil)) t)
+       ((unless (cond ((equal li-time (maybe-rational-fix nil))
+                       (implies (equal (sig-value->value left-internal-prev)
+                                       (target-tuple->target li-target))
+                                (equal (sig-value->value left-internal-next)
+                                       (sig-value->value left-internal-prev))))
                       ((equal (sig-value->value go-full-prev) nil)
                        (implies (not (equal (sig-value->value left-internal-prev)
                                             (sig-value->value left-internal-next)))
@@ -774,7 +772,11 @@ stop
        (ri-time
         (right-internal-trigger-time right-internal-prev full-prev
                                      go-empty-prev))
-       ((unless (cond ((equal ri-time (maybe-rational-fix nil)) t)
+       ((unless (cond ((equal ri-time (maybe-rational-fix nil))
+                       (implies (equal (sig-value->value right-internal-prev)
+                                       (target-tuple->target ri-target))
+                                (equal (sig-value->value right-internal-next)
+                                       (sig-value->value right-internal-prev))))
                       ((equal (sig-value->value go-empty-prev) nil)
                        (implies (not (equal (sig-value->value right-internal-prev)
                                             (sig-value->value right-internal-next)))
@@ -1206,115 +1208,115 @@ stop
 
 ;; go-full-next-nil: time interval bound the next time go-full will
 ;;   transition to nil
-(define go-full-next-nil ((go-full sig-value-p)
-                          (left-internal sig-value-p)
-                          (empty sig-value-p)
-                          (delay interval-p))
-  :returns (bounds maybe-interval-p)
-  (b* ((go-full (sig-value-fix go-full))
-       (empty (sig-value-fix empty))
-       (left-internal (sig-value-fix left-internal))
-       (delay (interval-fix delay))
-       ((if (and (sig-value->value go-full)
-                 (sig-value->value empty)
-                 (sig-value->value left-internal)))
-        (maybe-interval-some
-         (make-interval :lo (+ (max (sig-value->time go-full)
-                                    (sig-value->time empty))
-                               (* 2 (interval->lo delay)))
-                        :hi (+ (max (sig-value->time go-full)
-                                    (sig-value->time empty))
-                               (* 2 (interval->hi delay))))))
-       ((if (not (sig-value->value left-internal)))
-        (maybe-interval-some
-         (make-interval :lo (+ (sig-value->time left-internal)
-                               (interval->lo delay))
-                        :hi (+ (sig-value->time left-internal)
-                               (interval->hi delay))))))
-    (maybe-interval-fix nil)))
+;; (define go-full-next-nil ((go-full sig-value-p)
+;;                           (left-internal sig-value-p)
+;;                           (empty sig-value-p)
+;;                           (delay interval-p))
+;;   :returns (bounds maybe-interval-p)
+;;   (b* ((go-full (sig-value-fix go-full))
+;;        (empty (sig-value-fix empty))
+;;        (left-internal (sig-value-fix left-internal))
+;;        (delay (interval-fix delay))
+;;        ((if (and (sig-value->value go-full)
+;;                  (sig-value->value empty)
+;;                  (sig-value->value left-internal)))
+;;         (maybe-interval-some
+;;          (make-interval :lo (+ (max (sig-value->time go-full)
+;;                                     (sig-value->time empty))
+;;                                (* 2 (interval->lo delay)))
+;;                         :hi (+ (max (sig-value->time go-full)
+;;                                     (sig-value->time empty))
+;;                                (* 2 (interval->hi delay))))))
+;;        ((if (not (sig-value->value left-internal)))
+;;         (maybe-interval-some
+;;          (make-interval :lo (+ (sig-value->time left-internal)
+;;                                (interval->lo delay))
+;;                         :hi (+ (sig-value->time left-internal)
+;;                                (interval->hi delay))))))
+;;     (maybe-interval-fix nil)))
 
-(define go-full-next-t ((go-full sig-value-p)
-                        (left-internal sig-value-p)
-                        (empty sig-value-p)
-                        (delay interval-p))
-  :returns (bounds maybe-interval-p)
-  (b* ((go-full (sig-value-fix go-full))
-       (empty (sig-value-fix empty))
-       (left-internal (sig-value-fix left-internal))
-       (delay (interval-fix delay))
-       ((if (and (sig-value->value go-full)
-                 (sig-value->value empty)
-                 (sig-value->value left-internal)))
-        (maybe-interval-some
-         (make-interval :lo (+ (max (sig-value->time go-full)
-                                    (sig-value->time empty))
-                               (* 2 (interval->lo delay)))
-                        :hi (+ (max (sig-value->time go-full)
-                                    (sig-value->time empty))
-                               (* 2 (interval->hi delay))))))
-       ((if (not (sig-value->value left-internal)))
-        (maybe-interval-some
-         (make-interval :lo (+ (sig-value->time left-internal)
-                               (interval->lo delay))
-                        :hi (+ (sig-value->time left-internal)
-                               (interval->hi delay))))))
-    (maybe-interval-fix nil)))
+;; (define go-full-next-t ((go-full sig-value-p)
+;;                         (left-internal sig-value-p)
+;;                         (empty sig-value-p)
+;;                         (delay interval-p))
+;;   :returns (bounds maybe-interval-p)
+;;   (b* ((go-full (sig-value-fix go-full))
+;;        (empty (sig-value-fix empty))
+;;        (left-internal (sig-value-fix left-internal))
+;;        (delay (interval-fix delay))
+;;        ((if (and (sig-value->value go-full)
+;;                  (sig-value->value empty)
+;;                  (sig-value->value left-internal)))
+;;         (maybe-interval-some
+;;          (make-interval :lo (+ (max (sig-value->time go-full)
+;;                                     (sig-value->time empty))
+;;                                (* 2 (interval->lo delay)))
+;;                         :hi (+ (max (sig-value->time go-full)
+;;                                     (sig-value->time empty))
+;;                                (* 2 (interval->hi delay))))))
+;;        ((if (not (sig-value->value left-internal)))
+;;         (maybe-interval-some
+;;          (make-interval :lo (+ (sig-value->time left-internal)
+;;                                (interval->lo delay))
+;;                         :hi (+ (sig-value->time left-internal)
+;;                                (interval->hi delay))))))
+;;     (maybe-interval-fix nil)))
 
 
-(define interact-lenv ((a asp-stage-p)
-                       (el lenv-p)
-                       (tcurr rationalp)
-                       (curr gstate-p))
-  :returns (ok booleanp)
-  (b* ((el (lenv-fix el))
-       (a (asp-stage-fix a))
-       (curr (gstate-fix curr))
-       ((unless (sigs-in-bool-table (asp-sigs a) curr)) nil)
-       ((unless (sigs-in-bool-table (lenv-sigs el) curr)) nil)
-       (go-full (lenv->go-full el))
-       (empty (lenv->empty el))
-       (full-internal (asp-stage->full-internal a))
-       (left-internal (lenv->left-internal el))
-       (delta-t1 (asp-stage->delta-t1 a))
-       (delta-t2 (asp-stage->delta-t2 a))
-       (delta-env (lenv->delta-env el))
-       (go-full-curr (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix curr)))))
-       (empty-curr (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix curr)))))
-       (full-internal-curr (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal full-internal
-                                              (gstate-fix curr)))))
-       (left-internal-curr (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal left-internal
-                                              (gstate-fix curr))))))
-    (and
-     ;; constraints for empty and go-full
-     ;; full-internal fated to go to t
-     (implies (and empty.v go-full.v (not full-internal.v))
-              (< (hi (full-internal-next-t ...))
-                 (lo (go-full-next-nil ...))))
-     ;; empty fated to go to nil
-     (implies (and empty.v (or go-full.v full-internal.v))
-              (< (hi (empty-next-nil ...))
-                 (lo (go-full-next-t ...))))
-     ;; go-full fated to go to nil
-     (implies (and go-full.v (or empty.v (not left-internal.v)))
-              (< (hi (go-full-next-nil ...))
-                 (lo (empty-next-t go-full empty full-internal full))))
-     ))
-  )
+;; (define interact-lenv ((a asp-stage-p)
+;;                        (el lenv-p)
+;;                        (tcurr rationalp)
+;;                        (curr gstate-p))
+;;   :returns (ok booleanp)
+;;   (b* ((el (lenv-fix el))
+;;        (a (asp-stage-fix a))
+;;        (curr (gstate-fix curr))
+;;        ((unless (sigs-in-bool-table (asp-sigs a) curr)) nil)
+;;        ((unless (sigs-in-bool-table (lenv-sigs el) curr)) nil)
+;;        (go-full (lenv->go-full el))
+;;        (empty (lenv->empty el))
+;;        (full-internal (asp-stage->full-internal a))
+;;        (left-internal (lenv->left-internal el))
+;;        (delta-t1 (asp-stage->delta-t1 a))
+;;        (delta-t2 (asp-stage->delta-t2 a))
+;;        (delta-env (lenv->delta-env el))
+;;        (go-full-curr (cdr (smt::magic-fix
+;;                            'sig-path_sig-value
+;;                            (assoc-equal go-full (gstate-fix curr)))))
+;;        (empty-curr (cdr (smt::magic-fix
+;;                          'sig-path_sig-value
+;;                          (assoc-equal empty (gstate-fix curr)))))
+;;        (full-internal-curr (cdr (smt::magic-fix
+;;                                  'sig-path_sig-value
+;;                                  (assoc-equal full-internal
+;;                                               (gstate-fix curr)))))
+;;        (left-internal-curr (cdr (smt::magic-fix
+;;                                  'sig-path_sig-value
+;;                                  (assoc-equal left-internal
+;;                                               (gstate-fix curr))))))
+;;     (and
+;;      ;; constraints for empty and go-full
+;;      ;; full-internal fated to go to t
+;;      (implies (and empty.v go-full.v (not full-internal.v))
+;;               (< (hi (full-internal-next-t ...))
+;;                  (lo (go-full-next-nil ...))))
+;;      ;; empty fated to go to nil
+;;      (implies (and empty.v (or go-full.v full-internal.v))
+;;               (< (hi (empty-next-nil ...))
+;;                  (lo (go-full-next-t ...))))
+;;      ;; go-full fated to go to nil
+;;      (implies (and go-full.v (or empty.v (not left-internal.v)))
+;;               (< (hi (go-full-next-nil ...))
+;;                  (lo (empty-next-t go-full empty full-internal full))))
+;;      ))
+;;   )
 
-(define interact-renv ((a asp-stage-p)
-                       (er renv-p)
-                       (tcurr rationalp)
-                       (curr gstate-p))
-  :returns (ok booleanp)
-  )
+;; (define interact-renv ((a asp-stage-p)
+;;                        (er renv-p)
+;;                        (tcurr rationalp)
+;;                        (curr gstate-p))
+;;   :returns (ok booleanp)
+;;   )
 
 (define invariant ((a asp-stage-p) (el lenv-p) (er renv-p)
                    (tcurr rationalp) (curr gstate-p))
@@ -1326,45 +1328,6 @@ stop
        ((unless (sigs-in-bool-table (asp-sigs a) curr)) nil)
        ((unless (sigs-in-bool-table (lenv-sigs el) curr)) nil)
        ((unless (sigs-in-bool-table (renv-sigs er) curr)) nil)
-       (go-full (asp-stage->go-full a))
-       (go-empty (asp-stage->go-empty a))
-       (full (asp-stage->full a))
-       (empty (asp-stage->empty a))
-       (full-internal (asp-stage->full-internal a))
-       (delta-t1 (asp-stage->delta-t1 a))
-       (delta-t2 (asp-stage->delta-t2 a))
-       (go-full-prev (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix prev)))))
-       (go-full-next (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix next)))))
-       (go-empty-prev (cdr (smt::magic-fix
-                            'sig-path_sig-value
-                            (assoc-equal go-empty (gstate-fix prev)))))
-       (go-empty-next (cdr (smt::magic-fix
-                            'sig-path_sig-value
-                            (assoc-equal go-empty (gstate-fix next)))))
-       (full-prev (cdr (smt::magic-fix
-                        'sig-path_sig-value
-                        (assoc-equal full (gstate-fix prev)))))
-       (full-next (cdr (smt::magic-fix
-                        'sig-path_sig-value
-                        (assoc-equal full (gstate-fix next)))))
-       (empty-prev (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix prev)))))
-       (empty-next (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix next)))))
-       (full-internal-prev (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal full-internal
-                                              (gstate-fix prev)))))
-       (full-internal-next (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal full-internal
-                                              (gstate-fix next)))))
        ;; asp-stage invariant
        ((unless (invariant-stage a tcurr curr)) nil)
        ;; left environment invariant
@@ -1372,7 +1335,74 @@ stop
        ;; right environment invariant
        ((unless (invariant-renv er tcurr curr)) nil)
        ;; interaction invariants on left environment
-       ((unless (interact-lenv a el tcurr curr)) nil)
+       ;; ((unless (interact-lenv a el tcurr curr)) nil)
        ;; interaction invariants on right environment
-       ((unless (interact-renv a el tcurr curr)) nil))
+       ;; ((unless (interact-renv a el tcurr curr)) nil)
+       )
   t))
+
+(define invariant-trace ((a asp-stage-p) (el lenv-p)
+                         (er renv-p) (tr gtrace-p))
+  :returns (ok booleanp)
+  :measure (len tr)
+  (b* ((a (asp-stage-fix a))
+       (el (lenv-fix el))
+       (er (renv-fix er))
+       (tr (gtrace-fix tr))
+       ((unless (consp (gtrace-fix (cdr (gtrace-fix tr))))) t)
+       (first (car (gtrace-fix tr)))
+       (rest (cdr (gtrace-fix tr))))
+    (and (invariant a el er (gstate-t->statet first) (gstate-t->statev first))
+         (invariant-trace a el er rest))))
+
+(defthm invariant-thm
+  (implies (and (asp-stage-p a)
+                (lenv-p el)
+                (renv-p er)
+                (asp-connection a el er)
+                (gtrace-p tr)
+                (lenv-valid el tr)
+                (renv-valid er tr)
+                (asp-valid a tr)
+                (valid-interval (asp-stage->delta-t1 a))
+                (valid-interval (asp-stage->delta-t2 a))
+                (valid-interval (lenv->delta-env el))
+                (valid-interval (renv->delta-env er))
+                (consp (gtrace-fix tr))
+                (invariant a el er
+                           (gstate-t->statet (car (gtrace-fix tr)))
+                           (gstate-t->statev (car (gtrace-fix tr)))))
+           (invariant-trace a el er tr))
+  :hints (("Goal"
+           :smtlink
+           (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
+                            sig-path-list sig-path sig maybe-integer
+                            maybe-rational target-tuple)
+                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                           (st gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 5)
+                             (sigs-in-bool-trace :formals ((sigs sig-path-listp)
+                                                           (tr gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 2)
+                             (invariant-trace :formals ((a asp-stage-p)
+                                                        (el lenv-p)
+                                                        (er renv-p)
+                                                        (tr gtrace-p))
+                                              :returns ((ok booleanp))
+                                              :level 1)
+                             (lenv-valid :formals ((e lenv-p)
+                                                   (tr gtrace-p))
+                                         :returns ((ok booleanp))
+                                         :level 1)
+                             (renv-valid :formals ((e renv-p)
+                                                   (tr gtrace-p))
+                                         :returns ((ok booleanp))
+                                         :level 1)
+                             (asp-valid :formals ((a asp-stage-p)
+                                                  (tr gtrace-p))
+                                        :returns ((ok booleanp))
+                                        :level 1)
+                             )
+                 ))))
