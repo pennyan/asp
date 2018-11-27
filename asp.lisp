@@ -1,4 +1,5 @@
 (in-package "ASP")
+;; m = test._SMT_.solver.model()
 ;; simplify(gstate_sub_t.statev(gtrace.car(gtrace.cdr(m[tr])))).sexpr()
 
 (include-book "std/util/define" :dir :system)
@@ -301,6 +302,14 @@
                                (sig-path-list-fix
                                 (cons go-empty (sig-path-list-fix nil))))))))))))
 
+(define sig-time-<=-curr-time->=0 ((sig-curr sig-value-p)
+                                   (tcurr rationalp))
+  :returns (ok booleanp)
+  (b* ((sig-curr (sig-value-fix sig-curr))
+       (x-time-curr (sig-value->time sig-curr)))
+    (and (>= x-time-curr 0)
+         (<= x-time-curr tcurr))))
+
 (define time-consistent-when-signal-doesnt-change ((sig-prev sig-value-p)
                                                    (sig-next sig-value-p))
   :returns (ok booleanp)
@@ -387,6 +396,16 @@
                                               (gstate-fix next)))))
        ;; basic timing constraints
        ((unless (and (nondecreasing-time tprev tnext)
+                     (sig-time-<=-curr-time->=0 empty-prev tprev)
+                     (sig-time-<=-curr-time->=0 empty-next tnext)
+                     (sig-time-<=-curr-time->=0 full-prev tprev)
+                     (sig-time-<=-curr-time->=0 full-next tnext)
+                     (sig-time-<=-curr-time->=0 go-empty-prev tprev)
+                     (sig-time-<=-curr-time->=0 go-empty-next tnext)
+                     (sig-time-<=-curr-time->=0 go-full-prev tprev)
+                     (sig-time-<=-curr-time->=0 go-full-next tnext)
+                     (sig-time-<=-curr-time->=0 full-internal-prev tprev)
+                     (sig-time-<=-curr-time->=0 full-internal-next tnext)
                      (time-consistent-when-signal-doesnt-change empty-prev empty-next)
                      (time-consistent-when-signal-doesnt-change full-prev full-next)
                      (time-consistent-when-signal-doesnt-change go-empty-prev go-empty-next)
@@ -654,6 +673,12 @@
                                  'sig-path_sig-value
                                  (assoc-equal left-internal (gstate-fix next)))))
        ((unless (and (nondecreasing-time tprev tnext)
+                     (sig-time-<=-curr-time->=0 empty-prev tprev)
+                     (sig-time-<=-curr-time->=0 empty-next tnext)
+                     (sig-time-<=-curr-time->=0 go-full-prev tprev)
+                     (sig-time-<=-curr-time->=0 go-full-next tnext)
+                     (sig-time-<=-curr-time->=0 left-internal-prev tprev)
+                     (sig-time-<=-curr-time->=0 left-internal-next tnext)
                      (time-consistent-when-signal-doesnt-change empty-prev empty-next)
                      (time-consistent-when-signal-doesnt-change go-full-prev
                                                                 go-full-next)
@@ -752,6 +777,12 @@
                                   'sig-path_sig-value
                                   (assoc-equal right-internal (gstate-fix next)))))
        ((unless (and (nondecreasing-time tprev tnext)
+                     (sig-time-<=-curr-time->=0 full-prev tprev)
+                     (sig-time-<=-curr-time->=0 full-next tnext)
+                     (sig-time-<=-curr-time->=0 go-empty-prev tprev)
+                     (sig-time-<=-curr-time->=0 go-empty-next tnext)
+                     (sig-time-<=-curr-time->=0 right-internal-prev tprev)
+                     (sig-time-<=-curr-time->=0 right-internal-next tnext)
                      (time-consistent-when-signal-doesnt-change full-prev full-next)
                      (time-consistent-when-signal-doesnt-change go-empty-prev
                                                                 go-empty-next)
