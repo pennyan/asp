@@ -214,7 +214,7 @@
          :target (sig-value->value empty)
          :valid t)))
     (make-target-tuple
-     :target (sig-value->value full-internal)
+     :target (not (sig-value->value full-internal))
      :valid t)))
 
 (define empty-trigger-time ((empty sig-value-p)
@@ -440,7 +440,7 @@
         nil)
        ;; empty specific constraints
        (e-target (empty-target empty-prev full-internal-prev))
-       (e-time (full-trigger-time empty-prev full-internal-prev))
+       (e-time (empty-trigger-time empty-prev full-internal-prev))
        ((unless (signal-transition-constraints empty-prev tnext empty-next
                                                e-target e-time delta-t2))
         nil))
@@ -1400,10 +1400,13 @@
                 (valid-interval (lenv->delta-env el))
                 (valid-interval (renv->delta-env er))
                 (consp (gtrace-fix tr))
+                (consp (gtrace-fix (cdr (gtrace-fix tr))))
                 (invariant a el er
                            (gstate-t->statet (car (gtrace-fix tr)))
                            (gstate-t->statev (car (gtrace-fix tr)))))
-           (invariant-trace a el er tr))
+           (invariant a el er
+                      (gstate-t->statet (car (gtrace-fix (cdr (gtrace-fix tr)))))
+                      (gstate-t->statev (car (gtrace-fix (cdr (gtrace-fix tr)))))))
   :hints (("Goal"
            :smtlink
            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
@@ -1417,12 +1420,6 @@
                                                            (tr gstate-p))
                                                  :returns ((ok booleanp))
                                                  :level 2)
-                             (invariant-trace :formals ((a asp-stage-p)
-                                                        (el lenv-p)
-                                                        (er renv-p)
-                                                        (tr gtrace-p))
-                                              :returns ((ok booleanp))
-                                              :level 1)
                              (lenv-valid :formals ((e lenv-p)
                                                    (tr gtrace-p))
                                          :returns ((ok booleanp))
