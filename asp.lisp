@@ -270,9 +270,14 @@
                    ;; minimum time
                    (implies (not (equal (sig-value->value sig-prev)
                                         (sig-value->value sig-next)))
-                            (>= tnext (+ (maybe-rational-some->val
-                                          trigger-time)
-                                         (interval->lo delay))))))
+                            (and (>= tnext (+ (maybe-rational-some->val
+                                               trigger-time)
+                                              (interval->lo delay)))
+                                 ;; Yan: added this constraints for bug fixing,
+                                 ;; not sure yet if this is right.
+                                 (< (sig-value->time sig-next)
+                                    (+ (maybe-rational-some->val trigger-time)
+                                       (interval->hi delay)))))))
      ;; If it's a failure state, we don't constrain the value, but any change
      ;; will have to be after minimum delay
      (implies
@@ -983,6 +988,7 @@
        (empty (asp-stage->empty a))
        (full-internal (asp-stage->full-internal a))
        (delta-t1 (asp-stage->delta-t1 a))
+       (delta-t2 (asp-stage->delta-t2 a))
        (go-full-curr (cdr (smt::magic-fix
                            'sig-path_sig-value
                            (assoc-equal go-full (gstate-fix curr)))))
@@ -1036,15 +1042,15 @@
      (implies (equal (sig-value->value empty-curr)
                      (not (sig-value->value full-internal-curr)))
               (and (<= (+ (sig-value->time full-internal-curr)
-                          (interval->lo delta-t1))
+                          (interval->lo delta-t2))
                        (sig-value->time empty-curr))
                    (<= (sig-value->time empty-curr)
                        (+ (sig-value->time full-internal-curr)
-                          (interval->hi delta-t1)))))
+                          (interval->hi delta-t2)))))
      (implies (equal (sig-value->value empty-curr)
                      (sig-value->value full-internal-curr))
               (> (+ (sig-value->time full-internal-curr)
-                    (interval->hi delta-t1))
+                    (interval->hi delta-t2))
                  tcurr))
      ;; ----------------------------------------------------
      ;; the corresponding constraints for full, go-empty, and full-internal
@@ -1083,15 +1089,15 @@
      (implies (equal (sig-value->value full-curr)
                      (sig-value->value full-internal-curr))
               (and (<= (+ (sig-value->time full-internal-curr)
-                          (interval->lo delta-t1))
+                          (interval->lo delta-t2))
                        (sig-value->time full-curr))
                    (<= (sig-value->time full-curr)
                        (+ (sig-value->time full-internal-curr)
-                          (interval->hi delta-t1)))))
+                          (interval->hi delta-t2)))))
      (implies (equal (sig-value->value full-curr)
                      (not (sig-value->value full-internal-curr)))
               (> (+ (sig-value->time full-internal-curr)
-                    (interval->hi delta-t1))
+                    (interval->hi delta-t2))
                  tcurr))
      )))
 
