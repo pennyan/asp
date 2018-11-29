@@ -963,6 +963,12 @@
 ;; ========================================================================================
 ;;    The invariant
 
+;; (define tag-b ((b booleanp) (n integerp))
+;;   :returns (res booleanp)
+;;   (declare (ignore n))
+;;   (if (equal b t) t
+;;     nil))
+
 (define invariant-stage ((a asp-stage-p)
                          (tcurr rationalp)
                          (curr gstate-p))
@@ -1386,6 +1392,53 @@
     (and (invariant a el er (gstate-t->statet first) (gstate-t->statev first))
          (invariant-trace a el er rest))))
 
+(std::must-fail
+(defthm invariant-check-contradiction
+  (not (and (asp-stage-p a)
+            (lenv-p el)
+            (renv-p er)
+            (asp-connection a el er)
+            (gtrace-p tr)
+            (lenv-valid el tr)
+            (renv-valid er tr)
+            (asp-valid a tr)
+            (valid-interval (asp-stage->delta-t1 a))
+            (valid-interval (asp-stage->delta-t2 a))
+            (valid-interval (lenv->delta-env el))
+            (valid-interval (renv->delta-env er))
+            (consp (gtrace-fix tr))
+            (invariant a el er
+                       (gstate-t->statet (car (gtrace-fix tr)))
+                       (gstate-t->statev (car (gtrace-fix tr))))))
+  :hints (("Goal"
+           :smtlink
+           (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
+                            sig-path-list sig-path sig maybe-integer
+                            maybe-rational target-tuple)
+                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                           (st gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 5)
+                             (sigs-in-bool-trace :formals ((sigs sig-path-listp)
+                                                           (tr gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 2)
+                             (lenv-valid :formals ((e lenv-p)
+                                                   (tr gtrace-p))
+                                         :returns ((ok booleanp))
+                                         :level 1)
+                             (renv-valid :formals ((e renv-p)
+                                                   (tr gtrace-p))
+                                         :returns ((ok booleanp))
+                                         :level 1)
+                             (asp-valid :formals ((a asp-stage-p)
+                                                  (tr gtrace-p))
+                                        :returns ((ok booleanp))
+                                        :level 1)
+                             )
+                 ))))
+)
+
 (defthm invariant-thm
   (implies (and (asp-stage-p a)
                 (lenv-p el)
@@ -1432,5 +1485,9 @@
                                                   (tr gtrace-p))
                                         :returns ((ok booleanp))
                                         :level 1)
+                             (tag-b :formals ((b booleanp)
+                                              (n integerp))
+                                    :returns ((res booleanp))
+                                    :level 1)
                              )
                  ))))
