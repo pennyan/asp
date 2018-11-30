@@ -100,8 +100,7 @@
    (empty sig-path-p)
    (full-internal sig-path-p)
 
-   (delta-t1 interval-p)
-   (delta-t2 interval-p)
+   (delta interval-p)
    ))
 
 ;; =====================================================
@@ -273,11 +272,12 @@
                             (and (>= tnext (+ (maybe-rational-some->val
                                                trigger-time)
                                               (interval->lo delay)))
-                                 ;; Yan: added this constraints for bug fixing,
-                                 ;; not sure yet if this is right.
-                                 (< (sig-value->time sig-next)
-                                    (+ (maybe-rational-some->val trigger-time)
-                                       (interval->hi delay)))))))
+                                 ;; ;; Yan: added this constraints for bug fixing,
+                                 ;; ;; not sure yet if this is right.
+                                 ;; (< (sig-value->time sig-next)
+                                 ;;    (+ (maybe-rational-some->val trigger-time)
+                                 ;;       (interval->hi delay)))
+                                 ))))
      ;; If it's a failure state, we don't constrain the value, but any change
      ;; will have to be after minimum delay
      (implies
@@ -365,8 +365,7 @@
        (full (asp-stage->full a))
        (empty (asp-stage->empty a))
        (full-internal (asp-stage->full-internal a))
-       (delta-t1 (asp-stage->delta-t1 a))
-       (delta-t2 (asp-stage->delta-t2 a))
+       (delta (asp-stage->delta a))
        (go-full-prev (cdr (smt::magic-fix
                            'sig-path_sig-value
                            (assoc-equal go-full (gstate-fix prev)))))
@@ -435,19 +434,19 @@
                                     go-empty-prev full-internal-prev))
        ((unless (signal-transition-constraints full-internal-prev tnext
                                                full-internal-next fi-target
-                                               fi-time delta-t1))
+                                               fi-time delta))
         nil)
        ;; full specific constraints
        (f-target (full-target full-prev full-internal-prev))
        (f-time (full-trigger-time full-prev full-internal-prev))
        ((unless (signal-transition-constraints full-prev tnext full-next
-                                               f-target f-time delta-t2))
+                                               f-target f-time delta))
         nil)
        ;; empty specific constraints
        (e-target (empty-target empty-prev full-internal-prev))
        (e-time (empty-trigger-time empty-prev full-internal-prev))
        ((unless (signal-transition-constraints empty-prev tnext empty-next
-                                               e-target e-time delta-t2))
+                                               e-target e-time delta))
         nil))
     t))
 
@@ -610,7 +609,7 @@
   ((empty sig-path-p)
    (go-full sig-path-p)
    (left-internal sig-path-p)
-   (delta-env interval-p)
+   (delta interval-p)
    ))
 
 (define lenv-sigs ((e lenv-p))
@@ -629,7 +628,7 @@
   ((full sig-path-p)
    (go-empty sig-path-p)
    (right-internal sig-path-p)
-   (delta-env interval-p)
+   (delta interval-p)
    ))
 
 (define renv-sigs ((e renv-p))
@@ -658,7 +657,7 @@
        (empty (lenv->empty e))
        (go-full (lenv->go-full e))
        (left-internal (lenv->left-internal e))
-       (delta-env (lenv->delta-env e))
+       (delta (lenv->delta e))
        (empty-prev (cdr (smt::magic-fix
                          'sig-path_sig-value
                          (assoc-equal empty (gstate-fix prev)))))
@@ -713,10 +712,10 @@
                        (implies (not (equal (sig-value->value left-internal-prev)
                                             (sig-value->value left-internal-next)))
                                 (>= tnext (+ (maybe-rational-some->val li-time)
-                                             (interval->lo delta-env)))))
+                                             (interval->lo delta)))))
                       (t (signal-transition-constraints left-internal-prev tnext
                                                         left-internal-next li-target
-                                                        li-time delta-env))))
+                                                        li-time delta))))
         nil)
        ;; go-full specific constraints:
        (gf-target
@@ -725,7 +724,7 @@
         (lenv-go-full-trigger-time left-internal-prev go-full-prev))
        ((unless (signal-transition-constraints go-full-prev tnext
                                                go-full-next gf-target
-                                               gf-time delta-env))
+                                               gf-time delta))
         nil)
        )
     t))
@@ -762,7 +761,7 @@
        (full (renv->full e))
        (go-empty (renv->go-empty e))
        (right-internal (renv->right-internal e))
-       (delta-env (renv->delta-env e))
+       (delta (renv->delta e))
        (full-prev (cdr (smt::magic-fix
                         'sig-path_sig-value
                         (assoc-equal full (gstate-fix prev)))))
@@ -817,10 +816,10 @@
                        (implies (not (equal (sig-value->value right-internal-prev)
                                             (sig-value->value right-internal-next)))
                                 (>= tnext (+ (maybe-rational-some->val ri-time)
-                                             (interval->lo delta-env)))))
+                                             (interval->lo delta)))))
                       (t (signal-transition-constraints right-internal-prev tnext
                                                         right-internal-next ri-target
-                                                        ri-time delta-env))))
+                                                        ri-time delta))))
         nil)
        ;; go-empty specific constraints:
        (ge-target
@@ -829,7 +828,7 @@
         (renv-go-empty-trigger-time right-internal-prev go-empty-prev))
        ((unless (signal-transition-constraints go-empty-prev tnext
                                                go-empty-next ge-target
-                                               ge-time delta-env))
+                                               ge-time delta))
         nil)
        )
     t)
@@ -923,10 +922,9 @@
                 (lenv-valid el tr)
                 (renv-valid er tr)
                 (asp-valid a tr)
-                (valid-interval (asp-stage->delta-t1 a))
-                (valid-interval (asp-stage->delta-t2 a))
-                (valid-interval (lenv->delta-env el))
-                (valid-interval (renv->delta-env er))
+                (valid-interval (asp-stage->delta a))
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
                 (consp (gtrace-fix tr))
                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
                 (equal (sym-count a (gstate-t->statev (car (gtrace-fix tr))))
@@ -987,8 +985,7 @@
        (full (asp-stage->full a))
        (empty (asp-stage->empty a))
        (full-internal (asp-stage->full-internal a))
-       (delta-t1 (asp-stage->delta-t1 a))
-       (delta-t2 (asp-stage->delta-t2 a))
+       (delta (asp-stage->delta a))
        (go-full-curr (cdr (smt::magic-fix
                            'sig-path_sig-value
                            (assoc-equal go-full (gstate-fix curr)))))
@@ -1014,7 +1011,7 @@
                    (not (sig-value->value full-internal-curr)))
               (> (+ (max (sig-value->time empty-curr)
                          (sig-value->time go-full-curr))
-                    (interval->hi delta-t1))
+                    (interval->hi delta))
                  tcurr))
      ;; if full-internal is true and empty is still true
      ;;   then  full-internal went high at least delta.min after empty went high
@@ -1022,7 +1019,7 @@
      (implies (and (sig-value->value empty-curr)
                    (sig-value->value full-internal-curr))
               (and (<= (+ (sig-value->time empty-curr)
-                          (interval->lo delta-t1))
+                          (interval->lo delta))
                        (sig-value->time full-internal-curr))))
      ;; if empty, go-full, and full-internal are all true,
      ;;   then full-internal must have recently gone high, and the
@@ -1033,25 +1030,28 @@
                    (sig-value->value full-internal-curr))
               (and (>= (sig-value->time full-internal-curr)
                        (+ (sig-value->time go-full-curr)
-                          (interval->lo delta-t1)))
+                          (interval->lo delta)))
                    (<= (sig-value->time full-internal-curr)
                        (+ (max (sig-value->time empty-curr)
                                (sig-value->time go-full-curr))
-                          (interval->hi delta-t1)))))
+                          (interval->hi delta)))))
      ;; empty tracks not full-internal
      (implies (equal (sig-value->value empty-curr)
                      (not (sig-value->value full-internal-curr)))
               (and (<= (+ (sig-value->time full-internal-curr)
-                          (interval->lo delta-t2))
+                          (interval->lo delta))
                        (sig-value->time empty-curr))
                    (<= (sig-value->time empty-curr)
                        (+ (sig-value->time full-internal-curr)
-                          (interval->hi delta-t2)))))
+                          (interval->hi delta)))))
      (implies (equal (sig-value->value empty-curr)
                      (sig-value->value full-internal-curr))
-              (> (+ (sig-value->time full-internal-curr)
-                    (interval->hi delta-t2))
-                 tcurr))
+              (and (>= (sig-value->time full-internal-curr)
+                       (+ (sig-value->time empty-curr)
+                          (interval->lo delta)))
+                   (> (+ (sig-value->time full-internal-curr)
+                         (interval->hi delta))
+                      tcurr)))
      ;; ----------------------------------------------------
      ;; the corresponding constraints for full, go-empty, and full-internal
      ;; if full-internal is excited to go false but hasn't yet,
@@ -1061,7 +1061,7 @@
                    (sig-value->value full-internal-curr))
               (> (+ (max (sig-value->time full-curr)
                          (sig-value->time go-empty-curr))
-                    (interval->hi delta-t1))
+                    (interval->hi delta))
                  tcurr))
      ;; if full-internal is false and full is still true
      ;;   then  full-internal went low at least delta.min after full went high
@@ -1069,7 +1069,7 @@
      (implies (and (sig-value->value full-curr)
                    (not (sig-value->value full-internal-curr)))
               (and (<= (+ (sig-value->time full-curr)
-                          (interval->lo delta-t1))
+                          (interval->lo delta))
                        (sig-value->time full-internal-curr))))
      ;; if full, go-empty, and not(full-internal) are all true,
      ;;   then full-internal must have recently gone high, and the
@@ -1080,25 +1080,28 @@
                    (not (sig-value->value full-internal-curr)))
               (and (>= (sig-value->time full-internal-curr)
                        (+ (sig-value->time go-empty-curr)
-                          (interval->lo delta-t1)))
+                          (interval->lo delta)))
                    (<= (sig-value->time full-internal-curr)
                        (+ (max (sig-value->time full-curr)
                                (sig-value->time go-empty-curr))
-                          (interval->hi delta-t1)))))
+                          (interval->hi delta)))))
      ;; full tracks full-internal
      (implies (equal (sig-value->value full-curr)
                      (sig-value->value full-internal-curr))
               (and (<= (+ (sig-value->time full-internal-curr)
-                          (interval->lo delta-t2))
+                          (interval->lo delta))
                        (sig-value->time full-curr))
                    (<= (sig-value->time full-curr)
                        (+ (sig-value->time full-internal-curr)
-                          (interval->hi delta-t2)))))
+                          (interval->hi delta)))))
      (implies (equal (sig-value->value full-curr)
                      (not (sig-value->value full-internal-curr)))
-              (> (+ (sig-value->time full-internal-curr)
-                    (interval->hi delta-t2))
-                 tcurr))
+              (and (>= (sig-value->time full-internal-curr)
+                       (+ (sig-value->time full-curr)
+                          (interval->lo delta)))
+                   (> (+ (sig-value->time full-internal-curr)
+                         (interval->hi delta))
+                      tcurr)))
      )))
 
 (define invariant-lenv ((el lenv-p)
@@ -1112,7 +1115,7 @@
        (go-full (lenv->go-full el))
        (empty (lenv->empty el))
        (left-internal (lenv->left-internal el))
-       (delta-env (lenv->delta-env el))
+       (delta (lenv->delta el))
        (go-full-curr (cdr (smt::magic-fix
                            'sig-path_sig-value
                            (assoc-equal go-full (gstate-fix curr)))))
@@ -1133,7 +1136,7 @@
                    (sig-value->value left-internal-curr))
               (> (+ (max (sig-value->time go-full-curr)
                          (sig-value->time empty-curr))
-                    (interval->hi delta-env))
+                    (interval->hi delta))
                  tcurr))
      ;; if left-internal is false and go-full is still true
      ;;   then  full-internal went low at least delta.min after go-full went high
@@ -1141,7 +1144,7 @@
      (implies (and (sig-value->value go-full-curr)
                    (not (sig-value->value left-internal-curr)))
               (and (<= (+ (sig-value->time go-full-curr)
-                          (interval->lo delta-env))
+                          (interval->lo delta))
                        (sig-value->time left-internal-curr))))
      ;; if go-full, empty, and not(left-internal) are all true,
      ;;   then left-internal must have recently gone high, and the
@@ -1152,25 +1155,28 @@
                    (not (sig-value->value left-internal-curr)))
               (and (>= (sig-value->time left-internal-curr)
                        (+ (sig-value->time empty-curr)
-                          (interval->lo delta-env)))
+                          (interval->lo delta)))
                    (<= (sig-value->time left-internal-curr)
                        (+ (max (sig-value->time go-full-curr)
                                (sig-value->time empty-curr))
-                          (interval->hi delta-env)))))
+                          (interval->hi delta)))))
      ;; go-full tracks left-internal
      (implies (equal (sig-value->value go-full-curr)
                      (sig-value->value left-internal-curr))
               (and (<= (+ (sig-value->time left-internal-curr)
-                          (interval->lo delta-env))
+                          (interval->lo delta))
                        (sig-value->time go-full-curr))
                    (<= (sig-value->time go-full-curr)
                        (+ (sig-value->time left-internal-curr)
-                          (interval->hi delta-env)))))
+                          (interval->hi delta)))))
      (implies (equal (sig-value->value go-full-curr)
                      (not (sig-value->value left-internal-curr)))
-              (> (+ (sig-value->time left-internal-curr)
-                    (interval->hi delta-env))
-                 tcurr))))
+              (and (>= (sig-value->time left-internal-curr)
+                       (+ (sig-value->time go-full-curr)
+                          (interval->lo delta)))
+                   (> (+ (sig-value->time left-internal-curr)
+                         (interval->hi delta))
+                      tcurr)))))
   )
 
 (define invariant-renv ((er renv-p)
@@ -1184,7 +1190,7 @@
        (go-empty (renv->go-empty er))
        (full (renv->full er))
        (right-internal (renv->right-internal er))
-       (delta-env (renv->delta-env er))
+       (delta (renv->delta er))
        (go-empty-curr (cdr (smt::magic-fix
                             'sig-path_sig-value
                             (assoc-equal go-empty (gstate-fix curr)))))
@@ -1205,7 +1211,7 @@
                    (not (sig-value->value right-internal-curr)))
               (> (+ (max (sig-value->time go-empty-curr)
                          (sig-value->time full-curr))
-                    (interval->hi delta-env))
+                    (interval->hi delta))
                  tcurr))
      ;; if right-internal is true and is go-empty still true
      ;;   then right-internal went high at least delta.min after go-empty went high
@@ -1213,7 +1219,7 @@
      (implies (and (sig-value->value go-empty-curr)
                    (sig-value->value right-internal-curr))
               (and (<= (+ (sig-value->time go-empty-curr)
-                          (interval->lo delta-env))
+                          (interval->lo delta))
                        (sig-value->time right-internal-curr))))
      ;; if go-empty, full, and right-internal are all true,
      ;;   then left-internal must have recently gone high, and the
@@ -1224,25 +1230,28 @@
                    (sig-value->value right-internal-curr))
               (and (>= (sig-value->time right-internal-curr)
                        (+ (sig-value->time full-curr)
-                          (interval->lo delta-env)))
+                          (interval->lo delta)))
                    (<= (sig-value->time right-internal-curr)
                        (+ (max (sig-value->time go-empty-curr)
                                (sig-value->time full-curr))
-                          (interval->hi delta-env)))))
+                          (interval->hi delta)))))
      ;; go-empty tracks not(right-internal)
      (implies (equal (sig-value->value go-empty-curr)
                      (not (sig-value->value right-internal-curr)))
               (and (<= (+ (sig-value->time right-internal-curr)
-                          (interval->lo delta-env))
+                          (interval->lo delta))
                        (sig-value->time go-empty-curr))
                    (<= (sig-value->time go-empty-curr)
                        (+ (sig-value->time right-internal-curr)
-                          (interval->hi delta-env)))))
+                          (interval->hi delta)))))
      (implies (equal (sig-value->value go-empty-curr)
                      (sig-value->value right-internal-curr))
-              (> (+ (sig-value->time right-internal-curr)
-                    (interval->hi delta-env))
-                 tcurr))))
+              (and (>= (sig-value->time right-internal-curr)
+                       (+ (sig-value->time go-empty-curr)
+                          (interval->lo delta)))
+                   (> (+ (sig-value->time right-internal-curr)
+                         (interval->hi delta))
+                      tcurr)))))
   )
 
 ;; ----------------------------------------------------------
@@ -1251,108 +1260,437 @@
 
 ;; go-full-next-nil: time interval bound the next time go-full will
 ;;   transition to nil
-;; (define go-full-next-nil ((go-full sig-value-p)
-;;                           (left-internal sig-value-p)
-;;                           (empty sig-value-p)
-;;                           (delay interval-p))
-;;   :returns (bounds maybe-interval-p)
-;;   (b* ((go-full (sig-value-fix go-full))
-;;        (empty (sig-value-fix empty))
-;;        (left-internal (sig-value-fix left-internal))
-;;        (delay (interval-fix delay))
-;;        ((if (and (sig-value->value go-full)
-;;                  (sig-value->value empty)
-;;                  (sig-value->value left-internal)))
-;;         (maybe-interval-some
-;;          (make-interval :lo (+ (max (sig-value->time go-full)
-;;                                     (sig-value->time empty))
-;;                                (* 2 (interval->lo delay)))
-;;                         :hi (+ (max (sig-value->time go-full)
-;;                                     (sig-value->time empty))
-;;                                (* 2 (interval->hi delay))))))
-;;        ((if (not (sig-value->value left-internal)))
-;;         (maybe-interval-some
-;;          (make-interval :lo (+ (sig-value->time left-internal)
-;;                                (interval->lo delay))
-;;                         :hi (+ (sig-value->time left-internal)
-;;                                (interval->hi delay))))))
-;;     (maybe-interval-fix nil)))
+(define go-full-next-nil ((go-full sig-value-p)
+                          (left-internal sig-value-p)
+                          (empty sig-value-p)
+                          (delay interval-p)
+                          (delay-lenv interval-p))
+  :returns (bounds maybe-interval-p)
+  (b* ((go-full (sig-value-fix go-full))
+       (empty (sig-value-fix empty))
+       (left-internal (sig-value-fix left-internal))
+       (delay (interval-fix delay))
+       (delay-lenv (interval-fix delay-lenv))
+       ((if (and (sig-value->value go-full)
+                 (sig-value->value empty)
+                 (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (sig-value->time go-full)
+                                    (sig-value->time empty))
+                               (* 2 (interval->lo delay)))
+                        :hi (+ (max (sig-value->time go-full)
+                                    (sig-value->time empty))
+                               (* 2 (interval->hi delay))))))
+       ((if (not (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (interval->lo delay-lenv))
+                        :hi (+ (sig-value->time left-internal)
+                               (interval->hi delay-lenv))))))
+    (maybe-interval-fix nil)))
 
-;; (define go-full-next-t ((go-full sig-value-p)
-;;                         (left-internal sig-value-p)
-;;                         (empty sig-value-p)
-;;                         (delay interval-p))
-;;   :returns (bounds maybe-interval-p)
-;;   (b* ((go-full (sig-value-fix go-full))
-;;        (empty (sig-value-fix empty))
-;;        (left-internal (sig-value-fix left-internal))
-;;        (delay (interval-fix delay))
-;;        ((if (and (sig-value->value go-full)
-;;                  (sig-value->value empty)
-;;                  (sig-value->value left-internal)))
-;;         (maybe-interval-some
-;;          (make-interval :lo (+ (max (sig-value->time go-full)
-;;                                     (sig-value->time empty))
-;;                                (* 2 (interval->lo delay)))
-;;                         :hi (+ (max (sig-value->time go-full)
-;;                                     (sig-value->time empty))
-;;                                (* 2 (interval->hi delay))))))
-;;        ((if (not (sig-value->value left-internal)))
-;;         (maybe-interval-some
-;;          (make-interval :lo (+ (sig-value->time left-internal)
-;;                                (interval->lo delay))
-;;                         :hi (+ (sig-value->time left-internal)
-;;                                (interval->hi delay))))))
-;;     (maybe-interval-fix nil)))
+(define go-full-next-t ((go-full sig-value-p)
+                        (left-internal sig-value-p)
+                        (empty sig-value-p)
+                        (delay interval-p)
+                        (delay-lenv interval-p)
+                        (inf rationalp))
+  :returns (bounds maybe-interval-p)
+  (b* ((go-full (sig-value-fix go-full))
+       (empty (sig-value-fix empty))
+       (left-internal (sig-value-fix left-internal))
+       (delay (interval-fix delay))
+       (delay-lenv (interval-fix delay-lenv))
+       ((if (and (sig-value->value go-full)
+                 (sig-value->value empty)
+                 (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (sig-value->time go-full)
+                                    (sig-value->time empty))
+                               (* 4 (interval->lo delay)))
+                        :hi inf)))
+       ((if (not (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (* 3 (interval->lo delay-lenv)))
+                        :hi inf)))
+       ((if (and (not (sig-value->value go-full))
+                 (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (interval->lo delay-lenv))
+                        :hi (+ (sig-value->time left-internal)
+                               (interval->hi delay-lenv))))))
+    (maybe-interval-fix nil)))
 
+(define full-internal-next-t ((empty sig-value-p)
+                              (go-full sig-value-p)
+                              (full-internal sig-value-p)
+                              (left-internal sig-value-p)
+                              (delay interval-p)
+                              (delay-lenv interval-p)
+                              (inf rationalp))
+  :returns (bounds maybe-interval-p)
+  (b* ((empty (sig-value-fix empty))
+       (go-full (sig-value-fix go-full))
+       (full-internal (sig-value-fix full-internal))
+       (left-internal (sig-value-fix left-internal))
+       (delay (interval-fix delay))
+       (delay-lenv (interval-fix delay-lenv))
+       ((if (and (sig-value->value empty)
+                 (sig-value->value go-full)))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (sig-value->time go-full)
+                                    (sig-value->time empty))
+                               (interval->lo delay))
+                        :hi (+ (max (sig-value->time go-full)
+                                    (sig-value->time empty))
+                               (interval->hi delay)))))
+       ((if (and (sig-value->value empty)
+                 (not (sig-value->value go-full))
+                 (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (* 2 (interval->lo delay-lenv)))
+                        :hi (+ (sig-value->time left-internal)
+                               (* 2 (interval->hi delay-lenv))))))
+       ((if (and (sig-value->value empty)
+                 (not (sig-value->value go-full))
+                 (not (sig-value->value left-internal))))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (* 4 (interval->lo delay-lenv)))
+                        :hi inf)))
+       ((if (and (not (sig-value->value empty))
+                 (not (sig-value->value full-internal))
+                 (sig-value->value go-full)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time full-internal)
+                               (* 2 (interval->lo delay)))
+                        :hi (+ (sig-value->time full-internal)
+                               (* 2 (interval->hi delay))))))
+       ((if (and (not (sig-value->value empty))
+                 (not (sig-value->value full-internal))
+                 (not (sig-value->value go-full))
+                 (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (+ (sig-value->time left-internal)
+                                       (* 2 (interval->lo delay-lenv)))
+                                    (+ (sig-value->time full-internal)
+                                       (* 2 (interval->lo delay)))))
+                        :hi (+ (max (+ (sig-value->time left-internal)
+                                       (* 2 (interval->hi delay-lenv)))
+                                    (+ (sig-value->time full-internal)
+                                       (* 2 (interval->hi delay))))))))
+       ((if (and (not (sig-value->value empty))
+                 (not (sig-value->value full-internal))
+                 (not (sig-value->value go-full))
+                 (not (sig-value->value left-internal))))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (* 4 (interval->lo delay-lenv)))
+                        :hi inf))))
+    (maybe-interval-fix nil))
+  )
 
-;; (define interact-lenv ((a asp-stage-p)
-;;                        (el lenv-p)
-;;                        (tcurr rationalp)
-;;                        (curr gstate-p))
-;;   :returns (ok booleanp)
-;;   (b* ((el (lenv-fix el))
-;;        (a (asp-stage-fix a))
-;;        (curr (gstate-fix curr))
-;;        ((unless (sigs-in-bool-table (asp-sigs a) curr)) nil)
-;;        ((unless (sigs-in-bool-table (lenv-sigs el) curr)) nil)
-;;        (go-full (lenv->go-full el))
-;;        (empty (lenv->empty el))
-;;        (full-internal (asp-stage->full-internal a))
-;;        (left-internal (lenv->left-internal el))
-;;        (delta-t1 (asp-stage->delta-t1 a))
-;;        (delta-t2 (asp-stage->delta-t2 a))
-;;        (delta-env (lenv->delta-env el))
-;;        (go-full-curr (cdr (smt::magic-fix
-;;                            'sig-path_sig-value
-;;                            (assoc-equal go-full (gstate-fix curr)))))
-;;        (empty-curr (cdr (smt::magic-fix
-;;                          'sig-path_sig-value
-;;                          (assoc-equal empty (gstate-fix curr)))))
-;;        (full-internal-curr (cdr (smt::magic-fix
-;;                                  'sig-path_sig-value
-;;                                  (assoc-equal full-internal
-;;                                               (gstate-fix curr)))))
-;;        (left-internal-curr (cdr (smt::magic-fix
-;;                                  'sig-path_sig-value
-;;                                  (assoc-equal left-internal
-;;                                               (gstate-fix curr))))))
-;;     (and
-;;      ;; constraints for empty and go-full
-;;      ;; full-internal fated to go to t
-;;      (implies (and empty.v go-full.v (not full-internal.v))
-;;               (< (hi (full-internal-next-t ...))
-;;                  (lo (go-full-next-nil ...))))
-;;      ;; empty fated to go to nil
-;;      (implies (and empty.v (or go-full.v full-internal.v))
-;;               (< (hi (empty-next-nil ...))
-;;                  (lo (go-full-next-t ...))))
-;;      ;; go-full fated to go to nil
-;;      (implies (and go-full.v (or empty.v (not left-internal.v)))
-;;               (< (hi (go-full-next-nil ...))
-;;                  (lo (empty-next-t go-full empty full-internal full))))
-;;      ))
-;;   )
+(define full-internal-next-nil ((full sig-value-p)
+                                (go-empty sig-value-p)
+                                (full-internal sig-value-p)
+                                (right-internal sig-value-p)
+                                (delay interval-p)
+                                (delay-renv interval-p)
+                                (inf rationalp))
+  :returns (bounds maybe-interval-p)
+  (b* ((full (sig-value-fix full))
+       (go-empty (sig-value-fix go-empty))
+       (full-internal (sig-value-fix full-internal))
+       (right-internal (sig-value-fix right-internal))
+       (delay (interval-fix delay))
+       (delay-renv (interval-fix delay-renv))
+       ((if (and (sig-value->value full)
+                 (sig-value->value go-empty)))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (sig-value->time go-empty)
+                                    (sig-value->time full))
+                               (interval->lo delay))
+                        :hi (+ (max (sig-value->time go-empty)
+                                    (sig-value->time full))
+                               (interval->hi delay)))))
+       ((if (and (sig-value->value full)
+                 (not (sig-value->value go-empty))
+                 (not (sig-value->value right-internal))))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time right-internal)
+                               (* 2 (interval->lo delay-renv)))
+                        :hi (+ (sig-value->time right-internal)
+                               (* 2 (interval->hi delay-renv))))))
+       ((if (and (sig-value->value full)
+                 (not (sig-value->value go-empty))
+                 (sig-value->value right-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time right-internal)
+                               (* 4 (interval->lo delay-renv)))
+                        :hi inf)))
+       ((if (and (not (sig-value->value full))
+                 (sig-value->value full-internal)
+                 (sig-value->value go-empty)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time full-internal)
+                               (* 2 (interval->lo delay)))
+                        :hi (+ (sig-value->time full-internal)
+                               (* 2 (interval->hi delay))))))
+       ((if (and (not (sig-value->value full))
+                 (sig-value->value full-internal)
+                 (not (sig-value->value go-empty))
+                 (not (sig-value->value right-internal))))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (+ (sig-value->time right-internal)
+                                       (* 2 (interval->lo delay-renv)))
+                                    (+ (sig-value->time full-internal)
+                                       (* 2 (interval->lo delay)))))
+                        :hi (+ (max (+ (sig-value->time right-internal)
+                                       (* 2 (interval->hi delay-renv)))
+                                    (+ (sig-value->time full-internal)
+                                       (* 2 (interval->hi delay))))))))
+       ((if (and (not (sig-value->value full))
+                 (sig-value->value full-internal)
+                 (not (sig-value->value go-empty))
+                 (sig-value->value right-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time right-internal)
+                               (* 4 (interval->lo delay-renv)))
+                        :hi inf))))
+    (maybe-interval-fix nil))
+  )
+
+(define empty-next-nil ((empty sig-value-p)
+                        (go-full sig-value-p)
+                        (full-internal sig-value-p)
+                        (left-internal sig-value-p)
+                        (delay interval-p)
+                        (delay-lenv interval-p)
+                        (inf rationalp))
+  :returns (bounds maybe-interval-p)
+  (b* ((empty (sig-value-fix empty))
+       (go-full (sig-value-fix go-full))
+       (full-internal (sig-value-fix full-internal))
+       (left-internal (sig-value-fix left-internal))
+       (delay (interval-fix delay))
+       (delay-lenv (interval-fix delay-lenv))
+       ((if (and (sig-value->value empty)
+                 (sig-value->value full-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time full-internal)
+                               (interval->lo delay))
+                        :hi (+ (sig-value->time full-internal)
+                               (interval->hi delay)))))
+       ((if (and (sig-value->value empty)
+                 (sig-value->value go-full)))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (sig-value->time empty)
+                                    (sig-value->time go-full))
+                               (* 2 (interval->lo delay)))
+                        :hi (+ (max (sig-value->time empty)
+                                    (sig-value->time go-full))
+                               (* 2 (interval->hi delay))))))
+       ((if (and (sig-value->value empty)
+                 (not (sig-value->value go-full))
+                 (sig-value->value left-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (* 3 (interval->lo delay-lenv)))
+                        :hi (+ (sig-value->time left-internal)
+                               (* 3 (interval->hi delay-lenv))))))
+       ((if (and (sig-value->value empty)
+                 (not (sig-value->value go-full))
+                 (not (sig-value->value left-internal))))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time left-internal)
+                               (* 5 (interval->lo delay-lenv)))
+                        :hi inf))))
+    (maybe-interval-fix nil))
+  )
+
+(define empty-next-t ((empty sig-value-p)
+                      (full sig-value-p)
+                      (go-empty sig-value-p)
+                      (full-internal sig-value-p)
+                      (right-internal sig-value-p)
+                      (delay interval-p)
+                      (delay-renv interval-p)
+                      (inf rationalp))
+  :returns (bounds maybe-interval-p)
+  (b* ((empty (sig-value-fix empty))
+       (full (sig-value-fix full))
+       (go-empty (sig-value-fix go-empty))
+       (full-internal (sig-value-fix full-internal))
+       (right-internal (sig-value-fix right-internal))
+       (delay (interval-fix delay))
+       (delay-renv (interval-fix delay-renv))
+       ((if (and (not (sig-value->value empty))
+                 (not (sig-value->value full-internal))))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time full-internal)
+                               (interval->lo delay))
+                        :hi (+ (sig-value->time full-internal)
+                               (interval->hi delay)))))
+       ((if (and (sig-value->value full)
+                 (sig-value->value go-empty)))
+        (maybe-interval-some
+         (make-interval :lo (+ (max (sig-value->time full)
+                                    (sig-value->time go-empty))
+                               (* 2 (interval->lo delay)))
+                        :hi (+ (max (sig-value->time full)
+                                    (sig-value->time go-empty))
+                               (* 2 (interval->hi delay))))))
+       ((if (and (sig-value->value full)
+                 (not (sig-value->value go-empty))
+                 (sig-value->value right-internal)))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time right-internal)
+                               (* 3 (interval->lo delay-renv)))
+                        :hi (+ (sig-value->time right-internal)
+                               (* 3 (interval->hi delay-renv))))))
+       ((if (and (sig-value->value full)
+                 (not (sig-value->value go-empty))
+                 (not (sig-value->value right-internal))))
+        (maybe-interval-some
+         (make-interval :lo (+ (sig-value->time right-internal)
+                               (* 5 (interval->lo delay-renv)))
+                        :hi inf))))
+    (maybe-interval-fix nil))
+  )
+
+(define interact-lenv ((a asp-stage-p)
+                       (el lenv-p)
+                       (er renv-p)
+                       (curr gstate-p)
+                       (inf rationalp))
+  :returns (ok booleanp)
+  :guard-hints (("Goal" :in-theory (enable sigs-in-bool-table asp-sigs
+                                           lenv-sigs renv-sigs)))
+  (b* ((el (lenv-fix el))
+       (er (renv-fix er))
+       (a (asp-stage-fix a))
+       (curr (gstate-fix curr))
+       ((unless (sigs-in-bool-table (asp-sigs a) curr)) nil)
+       ((unless (sigs-in-bool-table (lenv-sigs el) curr)) nil)
+       ((unless (sigs-in-bool-table (renv-sigs er) curr)) nil)
+       (go-empty (asp-stage->go-empty a))
+       (go-full (asp-stage->go-full a))
+       (empty (asp-stage->empty a))
+       (full (asp-stage->full a))
+       (full-internal (asp-stage->full-internal a))
+       (left-internal (lenv->left-internal el))
+       (right-internal (renv->right-internal er))
+       (delta (asp-stage->delta a))
+       (delta-lenv (lenv->delta el))
+       (delta-renv (renv->delta er))
+       (go-empty-curr (cdr (smt::magic-fix
+                           'sig-path_sig-value
+                           (assoc-equal go-empty (gstate-fix curr)))))
+       (go-full-curr (cdr (smt::magic-fix
+                           'sig-path_sig-value
+                           (assoc-equal go-full (gstate-fix curr)))))
+       (empty-curr (cdr (smt::magic-fix
+                         'sig-path_sig-value
+                         (assoc-equal empty (gstate-fix curr)))))
+       (full-curr (cdr (smt::magic-fix
+                         'sig-path_sig-value
+                         (assoc-equal full (gstate-fix curr)))))
+       (full-internal-curr (cdr (smt::magic-fix
+                                 'sig-path_sig-value
+                                 (assoc-equal full-internal
+                                              (gstate-fix curr)))))
+       (left-internal-curr (cdr (smt::magic-fix
+                                 'sig-path_sig-value
+                                 (assoc-equal left-internal
+                                              (gstate-fix curr)))))
+       (right-internal-curr (cdr (smt::magic-fix
+                                  'sig-path_sig-value
+                                  (assoc-equal right-internal
+                                               (gstate-fix curr))))))
+    (and
+     ;; constraints for empty and go-full
+     ;; full-internal fated to go to t
+     (if (or (equal (full-internal-next-t empty-curr go-full-curr
+                                          full-internal-curr
+                                          left-internal-curr
+                                          delta delta-lenv inf)
+                    (maybe-interval-fix nil))
+             (equal (go-full-next-nil go-full-curr left-internal-curr
+                                      empty-curr delta
+                                      delta-lenv)
+                    (maybe-interval-fix nil)))
+         t
+       (implies (and (sig-value->value empty-curr)
+                     (sig-value->value go-full-curr)
+                     (not (sig-value->value full-internal-curr)))
+                (< (interval->hi
+                    (maybe-interval-some->val
+                     (full-internal-next-t empty-curr go-full-curr
+                                           full-internal-curr
+                                           left-internal-curr
+                                           delta delta-lenv inf)))
+                   (interval->lo
+                    (maybe-interval-some->val
+                     (go-full-next-nil go-full-curr left-internal-curr
+                                       empty-curr delta
+                                       delta-lenv))))))
+     ;; empty fated to go to nil
+     (if (or (equal (empty-next-nil empty-curr go-full-curr
+                                    full-internal-curr
+                                    left-internal-curr
+                                    delta delta-lenv inf)
+                    (maybe-interval-fix nil))
+             (equal (go-full-next-t go-full-curr left-internal-curr
+                                    empty-curr
+                                    delta delta-lenv inf)
+                    (maybe-interval-fix nil)))
+         t
+       (implies (and (sig-value->value empty-curr)
+                     (or (sig-value->value go-full-curr)
+                         (sig-value->value full-internal-curr)))
+                (< (interval->hi
+                    (maybe-interval-some->val
+                     (empty-next-nil empty-curr go-full-curr
+                                     full-internal-curr
+                                     left-internal-curr
+                                     delta delta-lenv inf)))
+                   (interval->lo
+                    (maybe-interval-some->val
+                     (go-full-next-t go-full-curr left-internal-curr
+                                     empty-curr
+                                     delta delta-lenv inf))))))
+     ;; go-full fated to go to nil
+     (if (or (equal (go-full-next-nil go-full-curr left-internal-curr
+                                      empty-curr delta
+                                      delta-lenv)
+                    (maybe-interval-fix nil))
+             (equal (empty-next-t empty-curr full-curr
+                                  go-empty-curr
+                                  full-internal-curr
+                                  right-internal-curr
+                                  delta delta-renv inf)
+                    (maybe-interval-fix nil)))
+         t
+       (implies (and (sig-value->value go-full-curr)
+                     (or (sig-value->value empty-curr)
+                         (not (sig-value->value left-internal-curr))))
+                (< (interval->hi
+                    (maybe-interval-some->val
+                     (go-full-next-nil go-full-curr left-internal-curr
+                                       empty-curr delta
+                                       delta-lenv)))
+                   (interval->lo
+                    (maybe-interval-some->val
+                     (empty-next-t empty-curr full-curr
+                                   go-empty-curr
+                                   full-internal-curr
+                                   right-internal-curr
+                                   delta delta-renv inf))))))
+     ))
+  )
 
 ;; (define interact-renv ((a asp-stage-p)
 ;;                        (er renv-p)
@@ -1362,7 +1700,8 @@
 ;;   )
 
 (define invariant ((a asp-stage-p) (el lenv-p) (er renv-p)
-                   (tcurr rationalp) (curr gstate-p))
+                   (tcurr rationalp) (curr gstate-p)
+                   (inf rationalp))
   :returns (ok booleanp)
   (b* ((a (asp-stage-fix a))
        (el (lenv-fix el))
@@ -1378,14 +1717,15 @@
        ;; right environment invariant
        ((unless (invariant-renv er tcurr curr)) nil)
        ;; interaction invariants on left environment
-       ;; ((unless (interact-lenv a el tcurr curr)) nil)
+       ((unless (interact-lenv a el er curr inf)) nil)
        ;; interaction invariants on right environment
        ;; ((unless (interact-renv a el tcurr curr)) nil)
        )
   t))
 
 (define invariant-trace ((a asp-stage-p) (el lenv-p)
-                         (er renv-p) (tr gtrace-p))
+                         (er renv-p) (tr gtrace-p)
+                         (inf rationalp))
   :returns (ok booleanp)
   :measure (len tr)
   (b* ((a (asp-stage-fix a))
@@ -1395,8 +1735,8 @@
        ((unless (consp (gtrace-fix (cdr (gtrace-fix tr))))) t)
        (first (car (gtrace-fix tr)))
        (rest (cdr (gtrace-fix tr))))
-    (and (invariant a el er (gstate-t->statet first) (gstate-t->statev first))
-         (invariant-trace a el er rest))))
+    (and (invariant a el er (gstate-t->statet first) (gstate-t->statev first) inf)
+         (invariant-trace a el er rest inf))))
 
 (std::must-fail
 (defthm invariant-check-contradiction
@@ -1415,12 +1755,13 @@
             (consp (gtrace-fix tr))
             (invariant a el er
                        (gstate-t->statet (car (gtrace-fix tr)))
-                       (gstate-t->statev (car (gtrace-fix tr))))))
+                       (gstate-t->statev (car (gtrace-fix tr)))
+                       1000))) ;; inf can be any value
   :hints (("Goal"
            :smtlink
            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
                             sig-path-list sig-path sig maybe-integer
-                            maybe-rational target-tuple)
+                            maybe-rational target-tuple maybe-interval)
                  :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
                                                            (st gstate-p))
                                                  :returns ((ok booleanp))
