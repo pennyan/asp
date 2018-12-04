@@ -186,3 +186,42 @@ Message Body
       'who-knows?))
 
  ;; Take some time off and enjoy your weekend 
+
+(define empty-next-t (go-full left-internal empty right-internal full-internal go-empty)
+  (interval-add delta
+   (if (and (not empty.v) (not full-internal.v))
+       full-internal.t
+      (full-internal-next-nil ...))))
+
+(define empty-next (target go-full left-internal empty right-internal full-internal go-empty)
+  (interval-add delta
+   (if (and (not (equal empty.v target)) (not (equal full-internal.v target)))
+       full-internal.t
+      (full-internal-next target ...))))
+
+(define full-internal-next-nil (go-full left-internal empty right-internal full-internal go-empty)
+ (b* ((ge-time ;; time for go-empty when it is (next or currently) true
+       (cond ((and (not right-internal.v) go-empty.v) go-empty.t)
+         ((not right-internal.v) (interval-add right-internal.t delta))
+         (right-internal.v
+          (make-interval :lo (+ (interval->lo right-interval.t) (* 3 delta.lo))
+                 :hi infinity))))
+      ((if full-internal.v) ;; easy case -- just need to figure out when full-internal drops
+       ;; figure out bounds for full and go-empty.  Then, get the bound for full-internal
+       (b* ((full-time (if full.v full.t (inverval-add full-internal.t delta))))
+           (interval-add (interval-max full-time ge-time) delta)))
+      ;; need to figure out when full-internal goes high so we can then figure out when
+      ;;  it drops again
+      (empty-time (if empty.v empty.t (inverval-add full-internal.t delta)))
+      (gf-time
+       (cond ;; see Yan's idea above
+    (go-full.v go-full.t)
+        (left-internal.v (interval-add left-internal.t delta))
+        ((not left-internal.v)
+     (make-interval :lo (+ (interval->lo left-interval.t) (* 3 delta.lo))
+            :hi infinity))))
+      ;; fi-t-time time bounds for next transition of full-internal to t
+      (fi-t-time (interval-add (interval-max empty-time gf-time) delta))
+      ;; now figure out bounds for full-internal going back to nil
+      (full-time (interval-add (fi-t-time delta)))) ;; full goes to t to enable full-internal going to nil
+   (interval-add (interval-max full-time ge-time) delta)))
