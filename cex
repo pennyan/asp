@@ -1,0 +1,24 @@
+Counter Examples
+===================
+Dec 7th
+
+tprev 8 tnext 16
+
+prev:
+go-full False 1
+go-empty True 0
+full False 7
+empty True 0
+full-internal True 8
+left-internal True 7.0609
+right-internal True 8
+
+next:
+go-full False 1
+go-empty True 0
+full True 16             <- 
+empty  True 0
+full-internal True 8
+left-internal True 7.0609
+right-internal True 8
+

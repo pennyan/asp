@@ -25,15 +25,13 @@
 
 (set-ignore-ok t)
 (define test-invariant ((sigs t) (deltas t)
-                        (prev t) (next t)
-                        (tprev t) (tnext t)
+                        (curr t) (tcurr t)
                         (inf t))
   :irrelevant-formals-ok t
-  (declare (ignorable tprev prev))
+  :verify-guards nil
   (b* (((unless (and (true-listp sigs)
                      (true-listp deltas)
-                     (true-listp prev)
-                     (true-listp next)))
+                     (true-listp curr)))
         nil)
        (go-full (test-sig (nth 0 sigs)))
        (go-empty (test-sig (nth 1 sigs)))
@@ -60,31 +58,36 @@
                               :go-empty ,go-empty
                               :right-internal ,right-internal
                               :delta ,delta-renv))
-       (prev `(list (cons ,go-full ,(test-sig-value (nth 0 prev)))
-                    (cons ,go-empty ,(test-sig-value (nth 1 prev)))
-                    (cons ,full ,(test-sig-value (nth 2 prev)))
-                    (cons ,empty ,(test-sig-value (nth 3 prev)))
-                    (cons ,full-internal ,(test-sig-value (nth 4 prev)))
-                    (cons ,left-internal ,(test-sig-value (nth 5 prev)))
-                    (cons ,right-internal ,(test-sig-value (nth 6 prev)))))
-       (next `(list (cons ,go-full ,(test-sig-value (nth 0 next)))
-                    (cons ,go-empty  ,(test-sig-value (nth 1 next)))
-                    (cons ,full  ,(test-sig-value (nth 2 next)))
-                    (cons ,empty  ,(test-sig-value (nth 3 next)))
-                    (cons ,full-internal  ,(test-sig-value (nth 4 next)))
-                    (cons ,left-internal  ,(test-sig-value (nth 5 next)))
-                    (cons ,right-internal  ,(test-sig-value (nth 6 next)))))
-       (inv `(invariant ,test-stage ,test-lenv ,test-renv ,tnext ,next ,inf))
-       (inv-stage `(invariant-stage ,test-stage ,tnext ,next))
-       (inv-lenv `(invariant-lenv ,test-lenv ,tnext ,next))
-       (inv-renv `(invariant-renv ,test-renv ,tnext ,next))
-       (inv-interact-lenv `(interact-lenv ,test-stage ,test-lenv ,test-renv
-                                          ,next ,inf))
-       (inv-interact-renv `(interact-renv ,test-stage ,test-lenv ,test-renv
-                                          ,next ,inf))
+       (curr `(list (cons ,go-full ,(test-sig-value (nth 0 curr)))
+                    (cons ,go-empty ,(test-sig-value (nth 1 curr)))
+                    (cons ,full ,(test-sig-value (nth 2 curr)))
+                    (cons ,empty ,(test-sig-value (nth 3 curr)))
+                    (cons ,full-internal ,(test-sig-value (nth 4 curr)))
+                    (cons ,left-internal ,(test-sig-value (nth 5 curr)))
+                    (cons ,right-internal ,(test-sig-value (nth 6 curr)))))
+       (go-empty `(cdr (assoc-equal ,go-empty ,curr)))
+       (go-full `(cdr (assoc-equal ,go-full ,curr)))
+       (empty `(cdr (assoc-equal ,empty ,curr)))
+       (full `(cdr (assoc-equal ,full ,curr)))
+       (full-internal `(cdr (assoc-equal ,full-internal ,curr)))
+       (left-internal `(cdr (assoc-equal ,left-internal ,curr)))
+       (right-internal `(cdr (assoc-equal ,right-internal ,curr)))
+       (inv `(invariant ,test-stage ,test-lenv ,test-renv ,tcurr ,curr ,inf))
+       (inv-stage `(invariant-stage ,go-full ,go-empty ,full ,empty
+                                    ,full-internal ,delta-stage ,tcurr))
+       (inv-lenv `(invariant-lenv ,go-full ,empty ,left-internal ,delta-lenv ,tcurr))
+       (inv-renv `(invariant-renv ,go-empty ,full ,right-internal ,delta-renv ,tcurr))
+       (inv-interact-lenv `(interact-lenv ,go-full ,go-empty ,full ,empty
+                                          ,full-internal
+                                          ,left-internal ,right-internal
+                                          ,delta-stage ,inf))
+       (inv-interact-renv `(interact-renv ,go-full ,go-empty ,full ,empty
+                                          ,full-internal
+                                          ,left-internal ,right-internal
+                                          ,delta-stage ,inf))
        )
     `(progn$
-      (cw "Testing invariant on next state: ~q0~%" ,inv)
+      (cw "Testing invariant on curr state: ~q0~%" ,inv)
       (cw "Testing invariant on the stage: ~q0~%" ,inv-stage)
       (cw "Testing invariant on the left env: ~q0~%" ,inv-lenv)
       (cw "Testing invariant on the right env: ~q0~%" ,inv-renv)
@@ -92,17 +95,42 @@
       (cw "Testing invariant on the interaction with right env: ~q0~%" ,inv-interact-renv)
       )))
 
-(defmacro test-invariant-macro (sigs deltas prev next tprev tnext)
-  (b* ((cmd (test-invariant sigs deltas prev next tprev tnext 1000))
+(defmacro test-invariant-macro (sigs deltas curr tcurr)
+  (b* ((cmd (test-invariant sigs deltas curr tcurr 1000))
        (- (cw "cmd: ~q0" cmd)))
     cmd))
 
-(test-invariant-macro ((11 10) (5 4) (3 2) (9 8) (13 12) (7 6) (1 0))
+(test-invariant-macro ((9 8) (5 4) (3 2) nil (11 10) (7 6) (1 0))
                       ((8 10) (8 10) (8 10))
-                      ;; go-full go-empty full empty 
-                      ((nil 7) (t 0) (t 0) (nil 6) (nil 8) (t 8) (t 8))
-                      ((t 16) (t 0) (t 0) (t 16) (nil 8) (t 8) (t 8))
-                      8 16)
+                      ;; go-full go-empty full empty
+                      ((nil 1) (t 0) (nil 7) (t 0) (t 8) (t 70609/10000) (t 8))
+                      ;; ((nil 1) (t 0) (t 16) (t 0) (t 8) (t 70609/10000) (t 8))
+                      8
+                      ;; 16
+                      )
+stop
+(b* ((go-full (MAKE-SIG-VALUE :VALUE nil :TIME 1))
+     (empty (MAKE-SIG-VALUE :VALUE t :TIME 0))
+     (left-internal (MAKE-SIG-VALUE :VALUE t :TIME 70609/10000))
+     (delta (make-interval :lo 8 :hi 10))
+     (tcurr 8))
+    (and
+     ;; go-full tracks left-internal
+     (implies (equal (sig-value->value go-full)
+                     (sig-value->value left-internal))
+              (and (<= (+ (sig-value->time left-internal)
+                          (interval->lo delta))
+                       (sig-value->time go-full))
+                   (< (sig-value->time go-full)
+                      (+ (sig-value->time left-internal)
+                         (interval->hi delta)))))
+     (implies (equal (sig-value->value go-full)
+                     (not (sig-value->value left-internal)))
+              (and (> (sig-value->time left-internal)
+                      (sig-value->time go-full))
+                   (> (+ (sig-value->time left-internal)
+                         (interval->hi delta))
+                      tcurr)))))
 
 (b* ((el (MAKE-LENV :EMPTY (LIST (MAKE-SIG :MODULE '|sym9| :INDEX 8))
                     :GO-FULL (LIST (MAKE-SIG :MODULE '|sym11| :INDEX 10))
@@ -246,134 +274,3 @@
                                    right-internal-curr
                                    delta inf))))))
      ))
-
-(b* ((a (MAKE-ASP-STAGE
-         :GO-FULL (LIST (MAKE-SIG :MODULE '|sym11| :INDEX 10))
-         :GO-EMPTY (LIST (MAKE-SIG :MODULE '|sym5| :INDEX 4))
-         :FULL (LIST (MAKE-SIG :MODULE '|sym3| :INDEX 2))
-         :EMPTY (LIST (MAKE-SIG :MODULE '|sym9| :INDEX 8))
-         :FULL-INTERNAL (LIST (MAKE-SIG :MODULE '|sym13| :INDEX 12))
-         :DELTA (MAKE-INTERVAL :LO 8 :HI 10)))
-     (tprev 8)
-     (tnext 16)
-     (prev (LIST (CONS (LIST (MAKE-SIG :MODULE '|sym11| :INDEX 10))
-                       (MAKE-SIG-VALUE :VALUE nil :TIME 7))
-                 (CONS (LIST (MAKE-SIG :MODULE '|sym5| :INDEX 4))
-                       (MAKE-SIG-VALUE :VALUE T :TIME 0))
-                 (CONS (LIST (MAKE-SIG :MODULE '|sym3| :INDEX 2))
-                       (MAKE-SIG-VALUE :VALUE T :TIME 0))
-                 (CONS (LIST (MAKE-SIG :MODULE '|sym9| :INDEX 8))
-                       (MAKE-SIG-VALUE :VALUE nil :TIME 6))
-                 (CONS (LIST (MAKE-SIG :MODULE '|sym13| :INDEX 12))
-                       (MAKE-SIG-VALUE :VALUE NIL :TIME 8))
-                 (CONS (LIST (MAKE-SIG :MODULE '|sym7| :INDEX 6))
-                       (MAKE-SIG-VALUE :VALUE T :TIME 8))
-                 (CONS (LIST (MAKE-SIG :MODULE '|sym1| :INDEX 0))
-                       (MAKE-SIG-VALUE :VALUE T :TIME 8))))
-       (next (LIST (CONS (LIST (MAKE-SIG :MODULE '|sym11| :INDEX 10))
-                               (MAKE-SIG-VALUE :VALUE T :TIME 16))
-                         (CONS (LIST (MAKE-SIG :MODULE '|sym5| :INDEX 4))
-                               (MAKE-SIG-VALUE :VALUE T :TIME 0))
-                         (CONS (LIST (MAKE-SIG :MODULE '|sym3| :INDEX 2))
-                               (MAKE-SIG-VALUE :VALUE T :TIME 0))
-                         (CONS (LIST (MAKE-SIG :MODULE '|sym9| :INDEX 8))
-                               (MAKE-SIG-VALUE :VALUE T :TIME 16))
-                         (CONS (LIST (MAKE-SIG :MODULE '|sym13| :INDEX 12))
-                               (MAKE-SIG-VALUE :VALUE NIL :TIME 8))
-                         (CONS (LIST (MAKE-SIG :MODULE '|sym7| :INDEX 6))
-                               (MAKE-SIG-VALUE :VALUE T :TIME 8))
-                         (CONS (LIST (MAKE-SIG :MODULE '|sym1| :INDEX 0))
-                               (MAKE-SIG-VALUE :VALUE T :TIME 8))))
-       ((unless (sigs-in-bool-table (asp-sigs a) prev)) nil)
-       ((unless (sigs-in-bool-table (asp-sigs a) next)) nil)
-       (go-full (asp-stage->go-full a))
-       (go-empty (asp-stage->go-empty a))
-       (full (asp-stage->full a))
-       (empty (asp-stage->empty a))
-       (full-internal (asp-stage->full-internal a))
-       (delta (asp-stage->delta a))
-       (go-full-prev (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix prev)))))
-       (go-full-next (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix next)))))
-       (go-empty-prev (cdr (smt::magic-fix
-                            'sig-path_sig-value
-                            (assoc-equal go-empty (gstate-fix prev)))))
-       (go-empty-next (cdr (smt::magic-fix
-                            'sig-path_sig-value
-                            (assoc-equal go-empty (gstate-fix next)))))
-       (full-prev (cdr (smt::magic-fix
-                        'sig-path_sig-value
-                        (assoc-equal full (gstate-fix prev)))))
-       (full-next (cdr (smt::magic-fix
-                        'sig-path_sig-value
-                        (assoc-equal full (gstate-fix next)))))
-       (empty-prev (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix prev)))))
-       (empty-next (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix next)))))
-       (full-internal-prev (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal full-internal
-                                              (gstate-fix prev)))))
-       (full-internal-next (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal full-internal
-                                              (gstate-fix next)))))
-       ;; basic timing constraints
-       ((unless (and (nondecreasing-time tprev tnext)
-                     (sig-time-<=-curr-time->=0 empty-prev tprev)
-                     (sig-time-<=-curr-time->=0 empty-next tnext)
-                     (sig-time-<=-curr-time->=0 full-prev tprev)
-                     (sig-time-<=-curr-time->=0 full-next tnext)
-                     (sig-time-<=-curr-time->=0 go-empty-prev tprev)
-                     (sig-time-<=-curr-time->=0 go-empty-next tnext)
-                     (sig-time-<=-curr-time->=0 go-full-prev tprev)
-                     (sig-time-<=-curr-time->=0 go-full-next tnext)
-                     (sig-time-<=-curr-time->=0 full-internal-prev tprev)
-                     (sig-time-<=-curr-time->=0 full-internal-next tnext)
-                     (time-consistent-when-signal-doesnt-change empty-prev empty-next)
-                     (time-consistent-when-signal-doesnt-change full-prev full-next)
-                     (time-consistent-when-signal-doesnt-change go-empty-prev go-empty-next)
-                     (time-consistent-when-signal-doesnt-change go-full-prev
-                                                                go-full-next)
-                     (time-consistent-when-signal-doesnt-change full-internal-prev
-                                                                full-internal-next)
-                     (time-set-when-signal-change empty-prev empty-next tnext)
-                     (time-set-when-signal-change full-prev full-next tnext)
-                     (time-set-when-signal-change go-empty-prev go-empty-next tnext)
-                     (time-set-when-signal-change go-full-prev go-full-next tnext)
-                     (time-set-when-signal-change full-internal-prev full-internal-next
-                                                  tnext)
-                     ))
-        nil)
-       ;; ;; full-internal specific constraints
-       ;; (fi-target
-       ;;  (full-internal-target full-prev empty-prev go-full-prev
-       ;;                        go-empty-prev full-internal-prev))
-       ;; (fi-time
-       ;;  (full-internal-trigger-time full-prev empty-prev go-full-prev
-       ;;                              go-empty-prev full-internal-prev))
-       ;; ((unless (signal-transition-constraints full-internal-prev tnext
-       ;;                                         full-internal-next fi-target
-       ;;                                         fi-time delta))
-       ;;  nil)
-       ;; ;; full specific constraints
-       (f-target (full-target full-prev full-internal-prev))
-       (f-time (full-trigger-time full-prev full-internal-prev))
-       ;; ((unless (signal-transition-constraints full-prev tnext full-next
-       ;;                                         f-target f-time delta))
-       ;;  nil)
-       ;; ;; empty specific constraints
-       ;; (e-target (empty-target empty-prev full-internal-prev))
-       ;; (e-time (empty-trigger-time empty-prev full-internal-prev))
-       ;; ((unless (signal-transition-constraints empty-prev tnext empty-next
-       ;;                                         e-target e-time delta))
-       ;;  nil)
-       )
-  (signal-transition-constraints full-prev tnext full-next
-                                 f-target f-time delta))
