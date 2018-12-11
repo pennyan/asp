@@ -1946,7 +1946,6 @@
                        8)
                 (equal (interval->hi (asp-stage->delta a))
                        10)
-                (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
                 (equal (interval->lo (asp-stage->delta a))
                        (interval->lo (lenv->delta el)))
                 (equal (interval->hi (asp-stage->delta a))
