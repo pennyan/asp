@@ -23,6 +23,10 @@
     `(make-sig-value :value ,(nth 0 sigv)
                      :time ,(nth 1 sigv))))
 
+(define what-to-print (failed-clauses)
+  :guard t
+  (if failed-clauses failed-clauses "passed"))
+
 (set-ignore-ok t)
 (define test-invariant ((sigs t) (deltas t)
                         (curr t) (tcurr t)
@@ -73,9 +77,9 @@
        (left-internal `(cdr (assoc-equal ,left-internal ,curr)))
        (right-internal `(cdr (assoc-equal ,right-internal ,curr)))
        (inv `(invariant ,test-stage ,test-lenv ,test-renv ,tcurr ,curr ,inf))
-       (inv-stage `(invariant-stage ,go-full ,go-empty ,full ,empty
-                                    ,full-internal ,delta-stage ,tcurr))
-       (inv-lenv `(invariant-lenv ,go-full ,empty ,left-internal ,delta-lenv ,tcurr))
+       (inv-stage `(invariant-stage-debug ,go-full ,go-empty ,full ,empty
+                                          ,full-internal ,delta-stage ,tcurr))
+       (inv-lenv `(invariant-lenv-failed ,go-full ,empty ,left-internal ,delta-lenv ,tcurr))
        (inv-renv `(invariant-renv ,go-empty ,full ,right-internal ,delta-renv ,tcurr))
        (inv-interact-lenv `(interact-lenv ,go-full ,go-empty ,full ,empty
                                           ,full-internal
@@ -87,9 +91,11 @@
                                           ,delta-stage ,inf))
        )
     `(progn$
+      (cw "left-internal = ~q0, go-full = ~q1, empty = ~q2, full-internal = ~q3, full = ~q4, go-empty = ~q5, right-internal = ~q6"
+          ,left-internal ,go-full ,empty ,full-internal ,full ,go-empty ,right-internal)
       (cw "Testing invariant on curr state: ~q0~%" ,inv)
       (cw "Testing invariant on the stage: ~q0~%" ,inv-stage)
-      (cw "Testing invariant on the left env: ~q0~%" ,inv-lenv)
+      (cw "Testing invariant on the left env: ~q0~%" (what-to-print ,inv-lenv))
       (cw "Testing invariant on the right env: ~q0~%" ,inv-renv)
       (cw "Testing invariant on the interaction with left env: ~q0~%" ,inv-interact-lenv)
       (cw "Testing invariant on the interaction with right env: ~q0~%" ,inv-interact-renv)
@@ -100,14 +106,15 @@
        (- (cw "cmd: ~q0" cmd)))
     cmd))
 
-(test-invariant-macro ((9 8) (5 4) (3 2) nil (11 10) (7 6) (1 0))
-                      ((8 10) (8 10) (8 10))
-                      ;; go-full go-empty full empty
-                      ((nil 1) (t 0) (nil 7) (t 0) (t 8) (t 70609/10000) (t 8))
-                      ;; ((nil 1) (t 0) (t 16) (t 0) (t 8) (t 70609/10000) (t 8))
-                      8
-                      ;; 16
-                      )
+;;(test-invariant-macro ((9 8) (5 4) (3 2) nil (11 10) (7 6) (1 0))
+;;                      ((8 10) (8 10) (8 10))
+;;                      ;; go-full go-empty full empty
+;;                      ((nil 1) (t 0) (nil 7) (t 0) (t 8) (t 70609/10000) (t 8))
+;;                      ;; ((nil 1) (t 0) (t 16) (t 0) (t 8) (t 70609/10000) (t 8))
+;;                      8
+;;                      ;; 16
+;;                      )
+
 stop
 (b* ((go-full (MAKE-SIG-VALUE :VALUE nil :TIME 1))
      (empty (MAKE-SIG-VALUE :VALUE t :TIME 0))

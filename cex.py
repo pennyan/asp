@@ -56,13 +56,13 @@ def acl2(m):
   nxt = x.gtrace.car(x.gtrace.cdr(tr))
   nxt_t = x.gstate_sub_t.statet(nxt)
   nxt_v = x.gstate_sub_t.statev(nxt)
-  sigs = [x.lenv.left_sub_internal(m[x.el]),
-          x.asp_sub_stage.go_sub_full(m[x.a]),
-          x.asp_sub_stage.empty(m[x.a]),
-          x.asp_sub_stage.full_sub_internal(m[x.a]),
-          x.asp_sub_stage.full(m[x.a]),
-          x.asp_sub_stage.go_sub_empty(m[x.a]),
-          x.renv.right_sub_internal(m[x.er])]
+  sigs = [ x.asp_sub_stage.go_sub_full(m[x.a]),
+           x.asp_sub_stage.go_sub_empty(m[x.a]),
+	   x.asp_sub_stage.full(m[x.a]),
+	   x.asp_sub_stage.empty(m[x.a]),
+	   x.asp_sub_stage.full_sub_internal(m[x.a]),
+	   x.lenv.left_sub_internal(m[x.el]),
+	   x.renv.right_sub_internal(m[x.er])]
   flat_sigs = [ gen_sigs(foo) for foo in sigs ]
   lo = simplify(x.interval.lo(x.lenv.delta(m[x.el])))
   hi = simplify(x.interval.hi(x.lenv.delta(m[x.el])))
