@@ -37,6 +37,9 @@ def cex_str(m):  # m is a model for a counter-example
 
 
 def gen_sigs(sig):
+  if simplify(sig) == x.sig_sub_path.nil:
+    return False
+
   return (simplify(x.Symbol_z3.z3Sym.ival(x.sig.module(x.sig_sub_path.car(sig)))),
           simplify(x.sig.index(x.sig_sub_path.car(sig))))
 
@@ -69,7 +72,7 @@ def acl2(m):
   return [flat_sigs, delta, sig_curr, tcurr]
 
 def translate(term):
-  step1 = str(term).replace(",", "").replace("[", "").replace("]", "")
+  step1 = str(term).replace(",", "").replace("[", "(").replace("]", ")")
   step2 = re.sub(r"([a-zA-Z0-9_]+?)\(", r"\(\1 ", step1)
   step3 = step2.replace(".0", "").replace("False", "nil").replace("True","t")
   return step3
@@ -89,6 +92,7 @@ def main():
     lines = cex_str(m)
     [print(line) for line in lines]
     term = acl2(m)
+    print("\nUse below form to test next state invariants:")
     print("(test-invariant-macro ")
-    [print("(" + translate(line) + ")") for line in term]
+    [print(translate(line)) for line in term]
     print(")")
