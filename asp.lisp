@@ -978,125 +978,149 @@
 ;;   (if (equal b t) t
 ;;     nil))
 
-(define invariant-stage-debug ((go-full sig-value-p)
-                               (go-empty sig-value-p)
-                               (full sig-value-p)
-                               (empty sig-value-p)
-                               (full-internal sig-value-p)
-                               (delta interval-p)
-                               (tcurr rationalp))
-  :returns (bad-clause integerp)
+(tau-status :system nil :auto-mode nil)
+
+(define invariant-stage-failed ((go-full sig-value-p)
+                                (go-empty sig-value-p)
+                                (full sig-value-p)
+                                (empty sig-value-p)
+                                (full-internal sig-value-p)
+                                (delta interval-p)
+                                (tcurr rationalp))
+  :returns (failed-clause integer-list-p
+                          :hints (("Goal"
+                                   :case-split-limitations (2 10)
+                                   :in-theory (disable max not))))
+  :guard-hints (("Goal"
+                 :case-split-limitations (2 10)
+                 :in-theory (disable max not)))
   (b* ((go-full (sig-value-fix go-full))
        (go-empty (sig-value-fix go-empty))
        (full (sig-value-fix full))
        (empty (sig-value-fix empty))
        (full-internal (sig-value-fix full-internal))
        (delta (interval-fix delta))
-       ((unless (implies (and (sig-value->value empty)
-			      (sig-value->value go-full)
-			      (not (sig-value->value full-internal)))
-                         (> (+ (max (sig-value->time empty)
-                                    (sig-value->time go-full))
-                               (interval->hi delta))
-                            tcurr)))
-	1)
-     ;; if full-internal is true and empty is still true
-     ;;   then  full-internal went high at least delta.min after empty went high
-     ;;     and time-now is less than the max delay for empty
-       ((unless (implies (and (sig-value->value empty)
-			      (sig-value->value full-internal))
-			 (and (<= (+ (sig-value->time empty)
-				     (interval->lo delta))
-				  (sig-value->time full-internal)))))
-	2)
-     ;; if empty, go-full, and full-internal are all true,
-     ;;   then full-internal must have recently gone high, and the
-     ;;   high value on go-full is the one that enabled full-internal to go high
-     ;;   Therefore, full-internal went high at least delta.min after go-full.
-       ((unless (implies (and (sig-value->value empty)
-			      (sig-value->value go-full)
-			      (sig-value->value full-internal))
-			 (and (>= (sig-value->time full-internal)
-				  (+ (sig-value->time go-full)
-				     (interval->lo delta)))
-			      (< (sig-value->time full-internal) ;; should be <  ?
-				 (+ (max (sig-value->time empty)
-					 (sig-value->time go-full))
-				    (interval->hi delta))))))
-	3)
-     ;; empty tracks not full-internal
-       ((unless (implies (equal (sig-value->value empty)
-				(not (sig-value->value full-internal)))
-			 (and (<= (+ (sig-value->time full-internal)
-				     (interval->lo delta))
-				  (sig-value->time empty))
-			      (< (sig-value->time empty) ;; should be < ?
-				 (+ (sig-value->time full-internal)
-				    (interval->hi delta))))))
-	4)
-       ((unless (implies (equal (sig-value->value empty)
-				(sig-value->value full-internal))
-			 (and (> (sig-value->time full-internal)
-				 (sig-value->time empty))
-			      (> (+ (sig-value->time full-internal)
-				    (interval->hi delta))
-				 tcurr))))
-	5)
-     ;; ----------------------------------------------------
-     ;; the corresponding constraints for full, go-empty, and full-internal
-     ;; if full-internal is excited to go false but hasn't yet,
-     ;;   then time-now is less than the max delay for full-internal.
-       ((unless (implies (and (sig-value->value full)
-			      (sig-value->value go-empty)
-			      (sig-value->value full-internal))
-			 (> (+ (max (sig-value->time full)
-				    (sig-value->time go-empty))
-			       (interval->hi delta))
-			    tcurr)))
-	6)
-     ;; if full-internal is false and full is still true
-     ;;   then  full-internal went low at least delta.min after full went high
-     ;;     and time-now is less than the max delay for full
-       ((unless (implies (and (sig-value->value full)
-			      (not (sig-value->value full-internal)))
-			 (and (<= (+ (sig-value->time full)
-				     (interval->lo delta))
-				  (sig-value->time full-internal)))))
-	7)
-     ;; if full, go-empty, and not(full-internal) are all true,
-     ;;   then full-internal must have recently gone high, and the
-     ;;   high value on go-empty is the one that enabled full-internal to go high
-     ;;   Therefore, full-internal went high at least delta.min after go-empty.
-       ((unless (implies (and (sig-value->value full)
-			      (sig-value->value go-empty)
-			      (not (sig-value->value full-internal)))
-			 (and (>= (sig-value->time full-internal)
-				  (+ (sig-value->time go-empty)
-				     (interval->lo delta)))
-			      (< (sig-value->time full-internal)
-				 (+ (max (sig-value->time full)
-					 (sig-value->time go-empty))
-				    (interval->hi delta))))))
-	8)
-     ;; full tracks full-internal
-       ((unless (implies (equal (sig-value->value full)
-				(sig-value->value full-internal))
-			 (and (<= (+ (sig-value->time full-internal)
-				     (interval->lo delta))
-				  (sig-value->time full))
-			      (< (sig-value->time full)
-				 (+ (sig-value->time full-internal)
-				    (interval->hi delta))))))
-	9)
-       ((unless (implies (equal (sig-value->value full)
-				(not (sig-value->value full-internal)))
-			 (and (> (sig-value->time full-internal)
-				 (sig-value->time full))
-			      (> (+ (sig-value->time full-internal)
-				    (interval->hi delta))
-				 tcurr))))
-	10))
-      -1))
+       (failed (integer-list-fix nil))
+       ;; constraints on empty, go-full, and full-internal
+       ;; if full-internal is excited to go true but hasn't yet,
+       ;;   then time-now is less than the max delay for full-internal.
+       (failed (if (implies (and (sig-value->value empty)
+			                           (sig-value->value go-full)
+			                           (not (sig-value->value full-internal)))
+                            (> (+ (max (sig-value->time empty)
+                                       (sig-value->time go-full))
+                                  (interval->hi delta))
+                               tcurr))
+                   failed
+                 (cons 1 (integer-list-fix failed))))
+       ;; if full-internal is true and empty is still true
+       ;;   then  full-internal went high at least delta.min after empty went high
+       ;;     and time-now is less than the max delay for empty
+       (failed (if (implies (and (sig-value->value empty)
+			                           (sig-value->value full-internal))
+			                      (and (<= (+ (sig-value->time empty)
+				                                (interval->lo delta))
+				                             (sig-value->time full-internal))))
+                   failed
+                 (cons 2 (integer-list-fix failed))))
+       ;; if empty, go-full, and full-internal are all true,
+       ;;   then full-internal must have recently gone high, and the
+       ;;   high value on go-full is the one that enabled full-internal to go high
+       ;;   Therefore, full-internal went high at least delta.min after go-full.
+       (failed (if (implies (and (sig-value->value empty)
+			                           (sig-value->value go-full)
+			                           (sig-value->value full-internal))
+			                      (and (>= (sig-value->time full-internal)
+				                             (+ (sig-value->time go-full)
+				                                (interval->lo delta)))
+			                           (< (sig-value->time full-internal)
+				                            (+ (max (sig-value->time empty)
+					                                  (sig-value->time go-full))
+				                               (interval->hi delta)))))
+                   failed
+                 (cons 3 (integer-list-fix failed))))
+       ;; empty tracks not full-internal
+       (failed (if (implies (equal (sig-value->value empty)
+				                           (not (sig-value->value full-internal)))
+			                      (and (<= (+ (sig-value->time full-internal)
+				                                (interval->lo delta))
+				                             (sig-value->time empty))
+			                           (< (sig-value->time empty)
+				                            (+ (sig-value->time full-internal)
+				                               (interval->hi delta)))))
+                   failed
+                 (cons 4 (integer-list-fix failed))))
+       (failed (if (implies (equal (sig-value->value empty)
+				                           (sig-value->value full-internal))
+			                      (and (> (sig-value->time full-internal)
+				                            (sig-value->time empty))
+			                           (> (+ (sig-value->time full-internal)
+				                               (interval->hi delta))
+				                            tcurr)))
+                   failed
+                 (cons 5 (integer-list-fix failed))))
+       ;; ----------------------------------------------------
+       ;; the corresponding constraints for full, go-empty, and full-internal
+       ;; if full-internal is excited to go false but hasn't yet,
+       ;;   then time-now is less than the max delay for full-internal.
+       (failed (if (implies (and (sig-value->value full)
+			                           (sig-value->value go-empty)
+			                           (sig-value->value full-internal))
+			                      (> (+ (max (sig-value->time full)
+				                               (sig-value->time go-empty))
+			                            (interval->hi delta))
+			                         tcurr))
+                   failed
+                 (cons 6 (integer-list-fix failed))))
+       ;; if full-internal is false and full is still true
+       ;;   then  full-internal went low at least delta.min after full went high
+       ;;     and time-now is less than the max delay for full
+       (failed (if (implies (and (sig-value->value full)
+			                           (not (sig-value->value full-internal)))
+			                      (and (<= (+ (sig-value->time full)
+				                                (interval->lo delta))
+				                             (sig-value->time full-internal))))
+                   failed
+                 (cons 7 (integer-list-fix failed))))
+       ;; if full, go-empty, and not(full-internal) are all true,
+       ;;   then full-internal must have recently gone high, and the
+       ;;   high value on go-empty is the one that enabled full-internal to go high
+       ;;   Therefore, full-internal went high at least delta.min after go-empty.
+       (failed (if (implies (and (sig-value->value full)
+			                           (sig-value->value go-empty)
+			                           (not (sig-value->value full-internal)))
+			                      (and (>= (sig-value->time full-internal)
+				                             (+ (sig-value->time go-empty)
+				                                (interval->lo delta)))
+			                           (< (sig-value->time full-internal)
+				                            (+ (max (sig-value->time full)
+					                                  (sig-value->time go-empty))
+				                               (interval->hi delta)))))
+                   failed
+                 (cons 8 (integer-list-fix failed))))
+       ;; full tracks full-internal
+       (failed (if (implies (equal (sig-value->value full)
+				                           (sig-value->value full-internal))
+			                      (and (<= (+ (sig-value->time full-internal)
+				                                (interval->lo delta))
+				                             (sig-value->time full))
+			                           (< (sig-value->time full)
+				                            (+ (sig-value->time full-internal)
+				                               (interval->hi delta)))))
+                   failed
+                 (cons 9 (integer-list-fix failed))))
+       (failed (if (implies (equal (sig-value->value full)
+				                           (not (sig-value->value full-internal)))
+			                      (and (> (sig-value->time full-internal)
+				                            (sig-value->time full))
+			                           (> (+ (sig-value->time full-internal)
+				                               (interval->hi delta))
+				                            tcurr)))
+                   failed
+                 (cons 10 (integer-list-fix failed)))))
+    failed))
+
+(tau-status :system t :auto-mode nil)
 
 (define invariant-stage ((go-full sig-value-p)
 			(go-empty sig-value-p)
@@ -1106,79 +1130,81 @@
 			(delta interval-p)
 			(tcurr rationalp))
   :returns (ok booleanp)
-  (equal (invariant-stage-debug go-full go-empty full empty full-internal delta tcurr) -1))
+  (equal (invariant-stage-failed go-full go-empty full empty
+                                full-internal delta tcurr)
+         (integer-list-fix nil)))
 
 (define invariant-lenv-failed ((go-full sig-value-p)
-			       (empty sig-value-p)
-			       (left-internal sig-value-p)
-			       (delta interval-p)
-			       (tcurr rationalp))
+			                         (empty sig-value-p)
+			                         (left-internal sig-value-p)
+			                         (delta interval-p)
+			                         (tcurr rationalp))
   :returns (failed-clauses integer-list-p)
   (b* ((go-full (sig-value-fix go-full))
        (empty (sig-value-fix empty))
        (left-internal (sig-value-fix left-internal))
        (delta (interval-fix delta))
        (failed (integer-list-fix nil))
-     ;; ----------------------------------------------------
-     ;; the corresponding constraints for go-full, empty, and left-internal
-     ;; if left-internal is excited to go false but hasn't yet,
-     ;;   then time-now is less than the max delay for left-internal.
+       ;; ----------------------------------------------------
+       ;; the corresponding constraints for go-full, empty, and left-internal
+       ;; if left-internal is excited to go false but hasn't yet,
+       ;;   then time-now is less than the max delay for left-internal.
        (failed (if (implies (and (sig-value->value go-full)
-			         (sig-value->value empty)
-			         (sig-value->value left-internal))
-			    (> (+ (max (sig-value->time go-full)
-				       (sig-value->time empty))
-			          (interval->hi delta))
-			       tcurr))
+			                           (sig-value->value empty)
+			                           (sig-value->value left-internal))
+			                      (> (+ (max (sig-value->time go-full)
+				                               (sig-value->time empty))
+			                            (interval->hi delta))
+			                         tcurr))
                    failed
-		   (cons 1 (integer-list-fix failed))))
-     ;; if left-internal is false and go-full is still true
-     ;;   then  full-internal went low at least delta.min after go-full went high
-     ;;     and time-now is less than the max delay for go-full
+		             (cons 1 (integer-list-fix failed))))
+       ;; if left-internal is false and go-full is still true
+       ;;   then  full-internal went low at least delta.min after go-full went high
+       ;;     and time-now is less than the max delay for go-full
        (failed (if (implies (and (sig-value->value go-full)
-				 (not (sig-value->value left-internal)))
-			    (and (<= (+ (sig-value->time go-full)
-					(interval->lo delta))
-				     (sig-value->time left-internal))))
+				                         (not (sig-value->value left-internal)))
+			                      (and (<= (+ (sig-value->time go-full)
+					                              (interval->lo delta))
+				                             (sig-value->time left-internal))))
                    failed
-		   (cons 2 (integer-list-fix failed))))
-     ;; if go-full, empty, and not(left-internal) are all true,
-     ;;   then left-internal must have recently gone high, and the
-     ;;   high value on empty is the one that enabled full-internal to go high
-     ;;   Therefore, full-internal went high at least delta.min after empty.
+		             (cons 2 (integer-list-fix failed))))
+       ;; if go-full, empty, and not(left-internal) are all true,
+       ;;   then left-internal must have recently gone high, and the
+       ;;   high value on empty is the one that enabled full-internal to go high
+       ;;   Therefore, full-internal went high at least delta.min after empty.
        (failed (if (implies (and (sig-value->value go-full)
-				 (sig-value->value empty)
-				 (not (sig-value->value left-internal)))
-			    (and (>= (sig-value->time left-internal)
-				     (+ (sig-value->time empty)
-					(interval->lo delta)))
-				 (< (sig-value->time left-internal)
-				    (+ (max (sig-value->time go-full)
-					    (sig-value->time empty))
-				       (interval->hi delta)))))
+				                         (sig-value->value empty)
+				                         (not (sig-value->value left-internal)))
+			                      (and (>= (sig-value->time left-internal)
+				                             (+ (sig-value->time empty)
+					                              (interval->lo delta)))
+				                         (< (sig-value->time left-internal)
+				                            (+ (max (sig-value->time go-full)
+					                                  (sig-value->time empty))
+				                               (interval->hi delta)))))
                    failed
-		   (cons 3 (integer-list-fix failed))))
-     ;; go-full tracks left-internal
+		             (cons 3 (integer-list-fix failed))))
+       ;; go-full tracks left-internal
        (failed (if (implies (equal (sig-value->value go-full)
-				   (sig-value->value left-internal))
-			    (and (<= (+ (sig-value->time left-internal)
-					(interval->lo delta))
-				     (sig-value->time go-full))
-				 (< (sig-value->time go-full)
-				    (+ (sig-value->time left-internal)
-				       (interval->hi delta)))))
+				                           (sig-value->value left-internal))
+			                      (and (<= (+ (sig-value->time left-internal)
+					                              (interval->lo delta))
+				                             (sig-value->time go-full))
+				                         (< (sig-value->time go-full)
+				                            (+ (sig-value->time left-internal)
+				                               (interval->hi delta)))))
                    failed
-		   (cons 4 (integer-list-fix failed))))
+		             (cons 4 (integer-list-fix failed))))
        (failed (if (implies (equal (sig-value->value go-full)
-				   (not (sig-value->value left-internal)))
-			    (and (> (sig-value->time left-internal)
-				    (sig-value->time go-full))
-				 (> (+ (sig-value->time left-internal)
-				       (interval->hi delta))
-				    tcurr)))
+				                           (not (sig-value->value left-internal)))
+			                      (and (> (sig-value->time left-internal)
+				                            (sig-value->time go-full))
+				                         (> (+ (sig-value->time left-internal)
+				                               (interval->hi delta))
+				                            tcurr)))
                    failed
-		   (cons 5 (integer-list-fix failed)))))
-      failed))
+		             (cons 5 (integer-list-fix failed)))))
+    failed))
 
 (define invariant-lenv ((go-full sig-value-p)
 			(empty sig-value-p)
@@ -1189,6 +1215,77 @@
  (equal (invariant-lenv-failed go-full empty left-internal delta tcurr)
         (integer-list-fix nil)))
 
+(define invariant-renv-failed ((go-empty sig-value-p)
+                               (full sig-value-p)
+                               (right-internal sig-value-p)
+                               (delta interval-p)
+                               (tcurr rationalp))
+  :returns (failed-clauses integer-list-p)
+  (b* ((go-empty (sig-value-fix go-empty))
+       (full (sig-value-fix full))
+       (right-internal (sig-value-fix right-internal))
+       (delta (interval-fix delta))
+       (failed (integer-list-fix nil))
+       ;; ----------------------------------------------------
+       ;; the corresponding constraints for go-empty, full, and right-internal
+       ;; if right-internal is excited to go true but hasn't yet,
+       ;;   then time-now is less than the max delay for left-internal.
+       (failed (if (implies (and (sig-value->value go-empty)
+                                 (sig-value->value full)
+                                 (not (sig-value->value right-internal)))
+                            (> (+ (max (sig-value->time go-empty)
+                                       (sig-value->time full))
+                                  (interval->hi delta))
+                               tcurr))
+                   failed
+                 (cons 1 (integer-list-fix failed))))
+       ;; if right-internal is true and is go-empty still true
+       ;;   then right-internal went high at least delta.min after go-empty went high
+       ;;     and time-now is less than the max delay for go-empty
+       (failed (if (implies (and (sig-value->value go-empty)
+                                 (sig-value->value right-internal))
+                            (and (<= (+ (sig-value->time go-empty)
+                                        (interval->lo delta))
+                                     (sig-value->time right-internal))))
+                   failed
+                 (cons 2 (integer-list-fix failed))))
+       ;; if go-empty, full, and right-internal are all true,
+       ;;   then left-internal must have recently gone high, and the
+       ;;   high value on empty is the one that enabled full-internal to go high
+       ;;   Therefore, full-internal went high at least delta.min after empty.
+       (failed (if (implies (and (sig-value->value go-empty)
+                                 (sig-value->value full)
+                                 (sig-value->value right-internal))
+                            (and (>= (sig-value->time right-internal)
+                                     (+ (sig-value->time full)
+                                        (interval->lo delta)))
+                                 (< (sig-value->time right-internal)
+                                    (+ (max (sig-value->time go-empty)
+                                            (sig-value->time full))
+                                       (interval->hi delta)))))
+                   failed
+                 (cons 3 (integer-list-fix failed))))
+       ;; go-empty tracks not(right-internal)
+       (failed (if (implies (equal (sig-value->value go-empty)
+                                   (not (sig-value->value right-internal)))
+                            (and (<= (+ (sig-value->time right-internal)
+                                        (interval->lo delta))
+                                     (sig-value->time go-empty))
+                                 (< (sig-value->time go-empty)
+                                    (+ (sig-value->time right-internal)
+                                       (interval->hi delta)))))
+                   failed
+                 (cons 4 (integer-list-fix failed))))
+       (failed (if (implies (equal (sig-value->value go-empty)
+                                   (sig-value->value right-internal))
+                            (and (> (sig-value->time right-internal)
+                                    (sig-value->time go-empty))
+                                 (> (+ (sig-value->time right-internal)
+                                       (interval->hi delta))
+                                    tcurr)))
+                   failed
+                 (cons 5 (integer-list-fix failed)))))
+    failed))
 
 (define invariant-renv ((go-empty sig-value-p)
                         (full sig-value-p)
@@ -1196,61 +1293,8 @@
                         (delta interval-p)
                         (tcurr rationalp))
   :returns (ok booleanp)
-  (b* ((go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta)))
-    (and
-     ;; ----------------------------------------------------
-     ;; the corresponding constraints for go-empty, full, and right-internal
-     ;; if right-internal is excited to go true but hasn't yet,
-     ;;   then time-now is less than the max delay for left-internal.
-     (implies (and (sig-value->value go-empty)
-                   (sig-value->value full)
-                   (not (sig-value->value right-internal)))
-              (> (+ (max (sig-value->time go-empty)
-                         (sig-value->time full))
-                    (interval->hi delta))
-                 tcurr))
-     ;; if right-internal is true and is go-empty still true
-     ;;   then right-internal went high at least delta.min after go-empty went high
-     ;;     and time-now is less than the max delay for go-empty
-     (implies (and (sig-value->value go-empty)
-                   (sig-value->value right-internal))
-              (and (<= (+ (sig-value->time go-empty)
-                          (interval->lo delta))
-                       (sig-value->time right-internal))))
-     ;; if go-empty, full, and right-internal are all true,
-     ;;   then left-internal must have recently gone high, and the
-     ;;   high value on empty is the one that enabled full-internal to go high
-     ;;   Therefore, full-internal went high at least delta.min after empty.
-     (implies (and (sig-value->value go-empty)
-                   (sig-value->value full)
-                   (sig-value->value right-internal))
-              (and (>= (sig-value->time right-internal)
-                       (+ (sig-value->time full)
-                          (interval->lo delta)))
-                   (< (sig-value->time right-internal)
-                      (+ (max (sig-value->time go-empty)
-                              (sig-value->time full))
-                         (interval->hi delta)))))
-     ;; go-empty tracks not(right-internal)
-     (implies (equal (sig-value->value go-empty)
-                     (not (sig-value->value right-internal)))
-              (and (<= (+ (sig-value->time right-internal)
-                          (interval->lo delta))
-                       (sig-value->time go-empty))
-                   (< (sig-value->time go-empty)
-                      (+ (sig-value->time right-internal)
-                         (interval->hi delta)))))
-     (implies (equal (sig-value->value go-empty)
-                     (sig-value->value right-internal))
-              (and (> (sig-value->time right-internal)
-                      (sig-value->time go-empty))
-                   (> (+ (sig-value->time right-internal)
-                         (interval->hi delta))
-                      tcurr)))))
-  )
+  (equal (invariant-renv-failed go-empty full right-internal delta tcurr)
+         (integer-list-fix nil)))
 
 ;; ----------------------------------------------------------
 
@@ -1752,16 +1796,16 @@
 ;; starting from start of (and empty gf)
 ;; 1. last(li_down, fi_up) < first(empty_down, gf_down)
 ;; 2. last(empty_down, gf_down) < first(empty_up, gf_up)
-(define interact-lenv ((go-full sig-value-p)
-                       (go-empty sig-value-p)
-                       (full sig-value-p)
-                       (empty sig-value-p)
-                       (full-internal sig-value-p)
-                       (left-internal sig-value-p)
-                       (right-internal sig-value-p)
-                       (delta interval-p)
-                       (inf rationalp))
-  :returns (ok booleanp)
+(define interact-lenv-failed ((go-full sig-value-p)
+                              (go-empty sig-value-p)
+                              (full sig-value-p)
+                              (empty sig-value-p)
+                              (full-internal sig-value-p)
+                              (left-internal sig-value-p)
+                              (right-internal sig-value-p)
+                              (delta interval-p)
+                              (inf rationalp))
+  :returns (failed-clauses integer-list-p)
   (b* ((go-empty (sig-value-fix go-empty))
        (go-full (sig-value-fix go-full))
        (empty (sig-value-fix empty))
@@ -1770,7 +1814,6 @@
        (left-internal (sig-value-fix left-internal))
        (right-internal (sig-value-fix right-internal))
        (delta (interval-fix delta))
-       ;; logical constraints
        (li_down (left-internal-next-nil go-full empty full-internal
                                         left-internal delta inf))
        (fi_up (full-internal-next-t go-full go-empty full empty full-internal
@@ -1785,23 +1828,23 @@
                              delta inf))
        (gf_up (go-full-next t go-full empty full-internal
                             left-internal delta inf))
-       ((if (and (sig-value->value empty)
-                 (sig-value->value go-full)))
-        (and (< (max (interval->hi li_down)
-                     (interval->hi fi_up))
-                (min (interval->lo empty_down)
-                     (interval->lo gf_down)))
-             (< (max (interval->hi empty_down)
-                     (interval->hi gf_down))
-                (min (interval->lo empty_up)
-                     (interval->lo gf_up))))))
-    t)
-  )
+       (failed (integer-list-fix nil))
+       ;; logical constraints
+       (failed (if (implies (and (sig-value->value empty)
+                                 (sig-value->value go-full))
+                            (and (< (max (interval->hi li_down)
+                                         (interval->hi fi_up))
+                                    (min (interval->lo empty_down)
+                                         (interval->lo gf_down)))
+                                 (< (max (interval->hi empty_down)
+                                         (interval->hi gf_down))
+                                    (min (interval->lo empty_up)
+                                         (interval->lo gf_up)))))
+                   failed
+                 (cons 1 (integer-list-fix failed)))))
+    failed))
 
-;; starting from start of (and full ge)
-;; 1. last(fi_down, ri_up) < first(full_down, ge_down)
-;; 2. last(full_down, ge_down) < first(full_up, ge_up)
-(define interact-renv ((go-full sig-value-p)
+(define interact-lenv ((go-full sig-value-p)
                        (go-empty sig-value-p)
                        (full sig-value-p)
                        (empty sig-value-p)
@@ -1811,6 +1854,23 @@
                        (delta interval-p)
                        (inf rationalp))
   :returns (ok booleanp)
+  (equal (interact-lenv-failed go-full go-empty full empty full-internal
+                               left-internal right-internal delta inf)
+         (integer-list-fix nil)))
+
+;; starting from start of (and full ge)
+;; 1. last(fi_down, ri_up) < first(full_down, ge_down)
+;; 2. last(full_down, ge_down) < first(full_up, ge_up)
+(define interact-renv-failed ((go-full sig-value-p)
+                              (go-empty sig-value-p)
+                              (full sig-value-p)
+                              (empty sig-value-p)
+                              (full-internal sig-value-p)
+                              (left-internal sig-value-p)
+                              (right-internal sig-value-p)
+                              (delta interval-p)
+                              (inf rationalp))
+  :returns (failed-clauses integer-list-p)
   (b* ((go-empty (sig-value-fix go-empty))
        (go-full (sig-value-fix go-full))
        (empty (sig-value-fix empty))
@@ -1819,7 +1879,6 @@
        (left-internal (sig-value-fix left-internal))
        (right-internal (sig-value-fix right-internal))
        (delta (interval-fix delta))
-       ;; logical constraints
        (fi_down (full-internal-next-nil go-full go-empty full empty full-internal
                                         left-internal right-internal delta
                                         inf))
@@ -1833,18 +1892,35 @@
                            left-internal right-internal delta inf))
        (ge_up (go-empty-next t go-empty full full-internal right-internal
                              delta inf))
-       ((if (and (sig-value->value full)
-                 (sig-value->value go-empty)))
-        (and (< (max (interval->hi fi_down)
-                     (interval->hi ri_up))
-                (min (interval->lo full_down)
-                     (interval->lo ge_down)))
-             (< (max (interval->hi full_down)
-                     (interval->hi ge_down))
-                (min (interval->lo full_up)
-                     (interval->lo ge_up))))))
-    t)
-  )
+       (failed (integer-list-fix nil))
+       ;; logical constraints
+       (failed (if (implies (and (sig-value->value full)
+                                 (sig-value->value go-empty))
+                            (and (< (max (interval->hi fi_down)
+                                         (interval->hi ri_up))
+                                    (min (interval->lo full_down)
+                                         (interval->lo ge_down)))
+                                 (< (max (interval->hi full_down)
+                                         (interval->hi ge_down))
+                                    (min (interval->lo full_up)
+                                         (interval->lo ge_up)))))
+                   failed
+                 (cons 1 (integer-list-fix failed)))))
+    failed))
+
+(define interact-renv ((go-full sig-value-p)
+                       (go-empty sig-value-p)
+                       (full sig-value-p)
+                       (empty sig-value-p)
+                       (full-internal sig-value-p)
+                       (left-internal sig-value-p)
+                       (right-internal sig-value-p)
+                       (delta interval-p)
+                       (inf rationalp))
+  :returns (ok booleanp)
+  (equal (interact-renv-failed go-full go-empty full empty full-internal
+                               left-internal right-internal delta inf)
+         (integer-list-fix nil)))
 
 ;; ------------------------------------------------------------------------------
 
@@ -1852,6 +1928,7 @@
                    (tcurr rationalp) (curr gstate-p)
                    (inf rationalp))
   :returns (ok booleanp)
+  :guard-debug t
   :guard-hints (("Goal" :in-theory (enable sigs-in-bool-table asp-sigs
                                            lenv-sigs renv-sigs)))
   (b* ((a (asp-stage-fix a))
