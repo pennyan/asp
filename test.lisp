@@ -78,7 +78,7 @@
        (right-internal `(cdr (assoc-equal ,right-internal ,curr)))
        (inv `(invariant ,test-stage ,test-lenv ,test-renv ,tcurr ,curr ,inf))
        (inv-stage `(invariant-stage-failed ,go-full ,go-empty ,full ,empty
-                                           ,full-internal ,delta-stage ,tcurr))
+			                                     ,full-internal ,delta-stage ,tcurr))
        (inv-lenv `(invariant-lenv-failed ,go-full ,empty ,left-internal ,delta-lenv ,tcurr))
        (inv-renv `(invariant-renv-failed ,go-empty ,full ,right-internal ,delta-renv ,tcurr))
        (inv-interact-lenv `(interact-lenv-failed ,go-full ,go-empty ,full ,empty

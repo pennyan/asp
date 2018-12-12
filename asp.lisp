@@ -978,29 +978,18 @@
 ;;   (if (equal b t) t
 ;;     nil))
 
-(tau-status :system nil :auto-mode nil)
-
-(define invariant-stage-failed ((go-full sig-value-p)
-                                (go-empty sig-value-p)
-                                (full sig-value-p)
-                                (empty sig-value-p)
-                                (full-internal sig-value-p)
-                                (delta interval-p)
-                                (tcurr rationalp))
-  :returns (failed-clause integer-list-p
-                          :hints (("Goal"
-                                   :case-split-limitations (2 10)
-                                   :in-theory (disable max not))))
-  :guard-hints (("Goal"
-                 :case-split-limitations (2 10)
-                 :in-theory (disable max not)))
+(define invariant-stage-left-failed ((go-full sig-value-p)
+                                     (empty sig-value-p)
+                                     (full-internal sig-value-p)
+                                     (delta interval-p)
+                                     (tcurr rationalp)
+                                     (failed integer-list-p))
+  :returns (failed-clause integer-list-p)
   (b* ((go-full (sig-value-fix go-full))
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
        (empty (sig-value-fix empty))
        (full-internal (sig-value-fix full-internal))
        (delta (interval-fix delta))
-       (failed (integer-list-fix nil))
+       (failed (integer-list-fix failed))
        ;; constraints on empty, go-full, and full-internal
        ;; if full-internal is excited to go true but hasn't yet,
        ;;   then time-now is less than the max delay for full-internal.
@@ -1058,7 +1047,21 @@
 				                               (interval->hi delta))
 				                            tcurr)))
                    failed
-                 (cons 5 (integer-list-fix failed))))
+                 (cons 5 (integer-list-fix failed)))))
+    failed))
+
+(define invariant-stage-right-failed ((go-empty sig-value-p)
+                                      (full sig-value-p)
+                                      (full-internal sig-value-p)
+                                      (delta interval-p)
+                                      (tcurr rationalp)
+                                      (failed integer-list-p))
+  :returns (failed-clause integer-list-p)
+  (b* ((go-empty (sig-value-fix go-empty))
+       (full (sig-value-fix full))
+       (full-internal (sig-value-fix full-internal))
+       (delta (interval-fix delta))
+       (failed (integer-list-fix failed))
        ;; ----------------------------------------------------
        ;; the corresponding constraints for full, go-empty, and full-internal
        ;; if full-internal is excited to go false but hasn't yet,
@@ -1120,18 +1123,31 @@
                  (cons 10 (integer-list-fix failed)))))
     failed))
 
-(tau-status :system t :auto-mode nil)
+(define invariant-stage-failed ((go-full sig-value-p)
+			                          (go-empty sig-value-p)
+			                          (full sig-value-p)
+			                          (empty sig-value-p)
+			                          (full-internal sig-value-p)
+			                          (delta interval-p)
+			                          (tcurr rationalp))
+  :returns (failed-clauses integer-list-p)
+  (b* ((failed (integer-list-fix nil))
+       (failed1 (invariant-stage-left-failed go-full empty full-internal delta
+			                                       tcurr failed))
+       (total-failed (invariant-stage-right-failed go-empty full full-internal
+			                                             delta tcurr failed1)))
+    total-failed))
 
 (define invariant-stage ((go-full sig-value-p)
-			(go-empty sig-value-p)
-			(full sig-value-p)
-			(empty sig-value-p)
-			(full-internal sig-value-p)
-			(delta interval-p)
-			(tcurr rationalp))
+			                   (go-empty sig-value-p)
+			                   (full sig-value-p)
+			                   (empty sig-value-p)
+			                   (full-internal sig-value-p)
+			                   (delta interval-p)
+			                   (tcurr rationalp))
   :returns (ok booleanp)
-  (equal (invariant-stage-failed go-full go-empty full empty
-                                full-internal delta tcurr)
+  (equal (invariant-stage-failed go-full go-empty full empty full-internal
+			                           delta tcurr)
          (integer-list-fix nil)))
 
 (define invariant-lenv-failed ((go-full sig-value-p)
