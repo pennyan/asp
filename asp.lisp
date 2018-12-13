@@ -1965,8 +1965,6 @@
 			                       )
 	               :smt-fname "inv-theorem.py"
 	               :smt-dir "smtpy"
-                 :precond-hint (:by nil)
-                 :type-hint (:by nil)
                  :evilp t
                  ))))
 
