@@ -13,7 +13,7 @@
 (include-book "util")
 
 ;; -------------------------------------
-;;       need an fty compatible integer-list 
+;;       need an fty compatible integer-list
 (deflist integer-list
   :elt-type integerp
   :true-listp t)
@@ -919,54 +919,54 @@
 ;;     a test for sort mismatch and stuff
 
 (std::must-fail
-(defthm simple-yan
-  (implies (and (asp-stage-p a)
-                (lenv-p el)
-                (renv-p er)
-                (asp-connection a el er)
-                (gtrace-p tr)
-                (lenv-valid el tr)
-                (renv-valid er tr)
-                (asp-valid a tr)
-                (valid-interval (asp-stage->delta a))
-                (valid-interval (lenv->delta el))
-                (valid-interval (renv->delta er))
-                (consp (gtrace-fix tr))
-                (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                (equal (sym-count a (gstate-t->statev (car (gtrace-fix tr))))
-                       (maybe-integer-some 1)))
-           (equal (sym-count a
-                             (gstate-t->statev
-                              (car (gtrace-fix (cdr (gtrace-fix tr))))))
-                             (maybe-integer-some 1)))
-  :hints (("Goal"
-           :smtlink
-           (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
-                            sig-path-list sig-path sig maybe-integer
-                            maybe-rational target-tuple)
-                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
-                                                           (st gstate-p))
-                                                 :returns ((ok booleanp))
-                                                 :level 5)
-                             (sigs-in-bool-trace :formals ((sigs sig-path-listp)
-                                                           (tr gstate-p))
-                                                 :returns ((ok booleanp))
-                                                 :level 2)
-                             (lenv-valid :formals ((e lenv-p)
+ (defthm simple-yan
+   (implies (and (asp-stage-p a)
+                 (lenv-p el)
+                 (renv-p er)
+                 (asp-connection a el er)
+                 (gtrace-p tr)
+                 (lenv-valid el tr)
+                 (renv-valid er tr)
+                 (asp-valid a tr)
+                 (valid-interval (asp-stage->delta a))
+                 (valid-interval (lenv->delta el))
+                 (valid-interval (renv->delta er))
+                 (consp (gtrace-fix tr))
+                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
+                 (equal (sym-count a (gstate-t->statev (car (gtrace-fix tr))))
+                        (maybe-integer-some 1)))
+            (equal (sym-count a
+                              (gstate-t->statev
+                               (car (gtrace-fix (cdr (gtrace-fix tr))))))
+                   (maybe-integer-some 1)))
+   :hints (("Goal"
+            :smtlink
+            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
+                             sig-path-list sig-path sig maybe-integer
+                             maybe-rational target-tuple)
+                  :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                            (st gstate-p))
+                                                  :returns ((ok booleanp))
+                                                  :level 5)
+                              (sigs-in-bool-trace :formals ((sigs sig-path-listp)
+                                                            (tr gstate-p))
+                                                  :returns ((ok booleanp))
+                                                  :level 2)
+                              (lenv-valid :formals ((e lenv-p)
+                                                    (tr gtrace-p))
+                                          :returns ((ok booleanp))
+                                          :level 1)
+                              (renv-valid :formals ((e renv-p)
+                                                    (tr gtrace-p))
+                                          :returns ((ok booleanp))
+                                          :level 1)
+                              (asp-valid :formals ((a asp-stage-p)
                                                    (tr gtrace-p))
                                          :returns ((ok booleanp))
                                          :level 1)
-                             (renv-valid :formals ((e renv-p)
-                                                   (tr gtrace-p))
-                                         :returns ((ok booleanp))
-                                         :level 1)
-                             (asp-valid :formals ((a asp-stage-p)
-                                                  (tr gtrace-p))
-                                        :returns ((ok booleanp))
-                                        :level 1)
-                             )
-                 ))))
-)
+                              )
+                  ))))
+ )
 
 
 ;; ========================================================================================
@@ -977,6 +977,31 @@
 ;;   (declare (ignore n))
 ;;   (if (equal b t) t
 ;;     nil))
+
+(defprod asp-stage-testbench
+  ((go-full sig-value-p)
+   (go-empty sig-value-p)
+   (full sig-value-p)
+   (empty sig-value-p)
+   (full-internal sig-value-p)
+   (left-internal sig-value-p)
+   (right-internal sig-value-p)
+   (delta interval-p)
+   (inf rationalp)))
+
+(defmacro use-asp-stage-testbench (tb bindings value)
+  `(b* ((testbench (asp-stage-testbench-fix ,tb))
+        (go-full (asp-stage-testbench->go-full testbench))
+        (go-empty (asp-stage-testbench->go-empty testbench))
+        (full (asp-stage-testbench->full testbench))
+        (empty (asp-stage-testbench->empty testbench))
+        (full-internal (asp-stage-testbench->full-internal testbench))
+        (left-internal (asp-stage-testbench->left-internal testbench))
+        (right-internal (asp-stage-testbench->right-internal testbench))
+        (delta (asp-stage-testbench->delta testbench))
+        (inf (asp-stage-testbench->inf testbench))
+        ,@bindings)
+     ,value))
 
 (define invariant-stage-left-failed ((go-full sig-value-p)
                                      (empty sig-value-p)
@@ -1223,13 +1248,13 @@
     failed))
 
 (define invariant-lenv ((go-full sig-value-p)
-			(empty sig-value-p)
-			(left-internal sig-value-p)
-			(delta interval-p)
-			(tcurr rationalp))
- :returns (ok booleanp)
- (equal (invariant-lenv-failed go-full empty left-internal delta tcurr)
-        (integer-list-fix nil)))
+			                  (empty sig-value-p)
+			                  (left-internal sig-value-p)
+			                  (delta interval-p)
+			                  (tcurr rationalp))
+  :returns (ok booleanp)
+  (equal (invariant-lenv-failed go-full empty left-internal delta tcurr)
+         (integer-list-fix nil)))
 
 (define invariant-renv-failed ((go-empty sig-value-p)
                                (full sig-value-p)
@@ -1332,611 +1357,402 @@
                    :hi (max (interval->hi itv1)
                             (interval->hi itv2)))))
 
-(define full-internal-next-nil ((go-full sig-value-p)
-                                (go-empty sig-value-p)
-                                (full sig-value-p)
-                                (empty sig-value-p)
-                                (full-internal sig-value-p)
-                                (left-internal sig-value-p)
-                                (right-internal sig-value-p)
-                                (delta interval-p)
-                                (inf rationalp))
-  :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-full (sig-value-fix go-full))
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (empty (sig-value-fix empty))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta))
-       ;; real logical constraints
-       ;; ge-time: time for go-empty when it is (next or currently) true
-       (ge-time (cond ((and (not (sig-value->value right-internal))
-                            (sig-value->value go-empty))
-                       (make-interval :lo (sig-value->time go-empty)
-                                      :hi (sig-value->time go-empty)))
-                      ((not (sig-value->value right-internal))
-                       (interval-add (make-interval
-                                      :lo (sig-value->time right-internal)
-                                      :hi (sig-value->time right-internal))
-                                     delta))
-                      (t ;;right-internal.value
-                       (make-interval :lo (+ (sig-value->time right-internal)
-                                             (* 3 (interval->lo delta)))
-                                      :hi (+ (sig-value->time right-internal)
-                                             inf)))))
-       ;; easy case -- just need to figure out when full-internal drops
-       ((if (sig-value->value full-internal))
-        ;; figure out bounds for full and go-empty.  Then, get the bound for full-internal
-        (b* ((full-time (if (sig-value->value full)
-                            (make-interval :lo (sig-value->time full)
-                                           :hi (sig-value->time full))
-                          (interval-add (make-interval :lo (sig-value->time full-internal)
-                                                       :hi (sig-value->time full-internal))
-                                        delta))))
-          (interval-add (interval-max full-time ge-time) delta)))
-       ;; hard case -- need to figure out when full-internal goes high so we
-       ;; can then figure out when it drops again
-       (empty-time (if (sig-value->value empty)
-                       (make-interval :lo (sig-value->time empty)
-                                      :hi (sig-value->time empty))
-                     (interval-add (make-interval :lo (sig-value->time full-internal)
-                                                  :hi (sig-value->time full-internal))
-                                   delta)))
-       (gf-time
-        (cond ((sig-value->value go-full)
-               (make-interval :lo (sig-value->time go-full)
-                              :hi (sig-value->time go-full)))
-              ((sig-value->value left-internal)
-               (interval-add
-                (make-interval :lo (sig-value->time left-internal)
-                               :hi (sig-value->time left-internal))
-                delta))
-              (t ;;(not left-internal.value)
-               (make-interval :lo (+ (sig-value->time left-internal)
-                                     (* 3 (interval->lo delta)))
-                              :hi (+ (sig-value->time left-internal) inf)))))
-       ;; fi-t-time time bouds for next transition of full-internal to t
-       (fi-t-time (interval-add (interval-max empty-time gf-time) delta))
-       ;; now figure out bounds for full-internal going back to nil
-       ;; full goes to t to enable full-internal going to nil
-       (full-time (interval-add fi-t-time delta)))
-    (interval-add (interval-max full-time ge-time) delta))
-  )
+(set-ignore-ok t)
 
-(define full-internal-next-t ((go-full sig-value-p)
-                              (go-empty sig-value-p)
-                              (full sig-value-p)
-                              (empty sig-value-p)
-                              (full-internal sig-value-p)
-                              (left-internal sig-value-p)
-                              (right-internal sig-value-p)
-                              (delta interval-p)
-                              (inf rationalp))
+(define full-internal-next-nil ((testbench asp-stage-testbench-p))
   :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-full (sig-value-fix go-full))
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (empty (sig-value-fix empty))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta))
-       ;; real logical constraints
-       ;; gf-time: time for go-full when it is (next or currently) true
-       (gf-time (cond ((and (sig-value->value left-internal)
-                            (sig-value->value go-full))
-                       (make-interval :lo (sig-value->time go-full)
-                                      :hi (sig-value->time go-full)))
-                      ((sig-value->value left-internal)
-                       (interval-add (make-interval
-                                      :lo (sig-value->time left-internal)
-                                      :hi (sig-value->time left-internal))
-                                     delta))
-                      (t ;;(not left-internal.value)
-                       (make-interval :lo (+ (sig-value->time left-internal)
-                                             (* 3 (interval->lo delta)))
-                                      :hi (+ (sig-value->time left-internal)
-                                             inf)))))
-       ;; easy case -- just need to figure out when full-internal goes high
-       ((if (not (sig-value->value full-internal)))
-        ;; figure out bounds for empty and go-full.  Then, get the bound for full-internal
-        (b* ((empty-time (if (sig-value->value empty)
-                             (make-interval :lo (sig-value->time empty)
-                                            :hi (sig-value->time empty))
-                           (interval-add (make-interval :lo (sig-value->time full-internal)
-                                                        :hi (sig-value->time full-internal))
-                                         delta))))
-          (interval-add (interval-max empty-time gf-time) delta)))
-       ;; hard case -- need to figure out when full-internal goes low so we
-       ;; can then figure out when it goes high again
-       (full-time (if (sig-value->value full)
-                      (make-interval :lo (sig-value->time full)
-                                     :hi (sig-value->time full))
-                    (interval-add (make-interval :lo (sig-value->time full-internal)
-                                                 :hi (sig-value->time full-internal))
-                                  delta)))
-       (ge-time
-        (cond ((sig-value->value go-empty)
-               (make-interval :lo (sig-value->time go-empty)
-                              :hi (sig-value->time go-empty)))
-              ((not (sig-value->value right-internal))
-               (interval-add
-                (make-interval :lo (sig-value->time right-internal)
-                               :hi (sig-value->time right-internal))
-                delta))
-              (t ;; right-internal.value
-               (make-interval :lo (+ (sig-value->time right-internal)
-                                     (* 3 (interval->lo delta)))
-                              :hi (+ (sig-value->time right-internal) inf)))))
-       ;; fi-nil-time time bounds for next transition of full-internal to nil
-       (fi-nil-time (interval-add (interval-max full-time ge-time) delta))
-       ;; now figure out bounds for full-internal going back to nil
-       ;; empty goes to t to enable full-internal going to t
-       (empty-time (interval-add fi-nil-time delta)))
-    (interval-add (interval-max empty-time gf-time) delta))
-  )
+  (use-asp-stage-testbench testbench
+                           (((if (sig-value->value full-internal)) ;; easy case -- just need to figure out when full-internal drops
+                             ;; figure out bounds for full and go-empty.  Then, get the bound for full-internal
+                             (b* ((full-time (if (sig-value->value full)
+			                                           (make-interval :lo (sig-value->time full)
+					                                                      :hi (sig-value->time full))
+		                                           (interval-add (make-interval :lo (sig-value->time full-internal)
+						                                                                :hi (sig-value->time full-internal))
+				                                                     delta)))
+                                  (ge-time (cond ((sig-value->value go-empty)
+			                                            (make-interval :lo (sig-value->time go-empty)
+					                                                       :hi (sig-value->time go-empty)))
+			                                           ((not (sig-value->value right-internal))
+			                                            (interval-add (make-interval :lo (sig-value->time right-internal)
+						                                                                   :hi (sig-value->time right-internal))
+					                                                      delta))
+			                                           (t
+			                                            (make-interval
+			                                             :lo (+ (sig-value->time right-internal) (* 3 (interval->lo delta)))
+			                                             :hi (+ (sig-value->time right-internal) inf (interval->hi delta)))))))
+                               (interval-add (interval-max full-time ge-time) delta)))
+                            ;; hard case -- need to figure out when full-internal goes high so we
+                            ;; can then figure out when it drops again
+                            (empty-time (if (sig-value->value empty)
+		                                        (make-interval :lo (sig-value->time empty)
+				                                                   :hi (sig-value->time empty))
+		                                      (interval-add (make-interval :lo (sig-value->time full-internal)
+					                                                             :hi (sig-value->time full-internal))
+				                                                delta)))
+                            (gf-time
+                             (cond ((sig-value->value go-full)
+	                                  (make-interval :lo (sig-value->time go-full)
+			                                             :hi (sig-value->time go-full)))
+	                                 ((sig-value->value left-internal)
+	                                  (interval-add
+	                                   (make-interval :lo (sig-value->time left-internal)
+			                                              :hi (sig-value->time left-internal))
+	                                   delta))
+	                                 (t ;;(not left-internal.value)
+	                                  (make-interval :lo (+ (sig-value->time left-internal)
+				                                                  (* 3 (interval->lo delta)))
+			                                             :hi (+ (sig-value->time left-internal) inf (interval->hi delta))))))
+                            ;; fi-t-time time bouds for next transition of full-internal to t
+                            (fi-t-time (interval-add (interval-max empty-time gf-time) delta))
+                            ;; now figure out bounds for full-internal going back to nil
+                            ;; full goes to t to enable full-internal going to nil
+                            (full-time (interval-add fi-t-time delta))
+                            (right-internal-time (sig-value->time right-internal))
+                            (ge-time (cond ((and (not (sig-value->value right-internal))
+			                                           (sig-value->value go-empty))
+		                                        (make-interval :lo (sig-value->time go-empty)
+				                                                   :hi (sig-value->time go-empty)))
+		                                       ((not (sig-value->value right-internal))
+		                                        (interval-add (make-interval
+				                                                   :lo right-internal-time
+				                                                   :hi right-internal-time)
+				                                                  delta))
+		                                       (t ;; right-internal must be t
+		                                        (make-interval :lo (+ right-internal-time (* 3 (interval->lo delta)))
+				                                                   :hi (+ right-internal-time inf (interval->hi delta)))))))
+                           (interval-add (interval-max full-time ge-time) delta)))
 
-(define empty-next ((target booleanp)
-                    (go-full sig-value-p)
-                    (go-empty sig-value-p)
-                    (full sig-value-p)
-                    (empty sig-value-p)
-                    (full-internal sig-value-p)
-                    (left-internal sig-value-p)
-                    (right-internal sig-value-p)
-                    (delta interval-p)
-                    (inf rationalp))
+(define full-internal-next-t ((testbench asp-stage-testbench-p))
   :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-full (sig-value-fix go-full))
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (empty (sig-value-fix empty))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta)))
-    ;; the real logical constraints
-    (interval-add
-     (if (and (not (equal (sig-value->value empty) target))
-              (not (equal (sig-value->value full-internal) target)))
-         (make-interval :lo (sig-value->time full-internal)
-                        :hi (sig-value->time full-internal))
-       (if target
-           (full-internal-next-nil go-full go-empty full empty full-internal
-                                   left-internal right-internal delta inf)
-         (full-internal-next-t go-full go-empty full empty full-internal
-                               left-internal right-internal delta inf)))
-     delta)))
+  (use-asp-stage-testbench testbench
+                           (((if (not (sig-value->value full-internal)))
+                             ;; easy case -- figure out bounds for empty and go-full going (or being) t.
+                             ;; Then, get the bound for the transition of full-internal to t.
+                             (b* ((empty-time (if (sig-value->value empty)
+			                                            (make-interval :lo (sig-value->time empty)
+					                                                       :hi (sig-value->time empty))
+			                                          (interval-add (make-interval :lo (sig-value->time full-internal)
+						                                                                 :hi (sig-value->time full-internal))
+				                                                      delta)))
+                                  (gf-time (cond ((sig-value->value go-full)
+			                                            (make-interval :lo (sig-value->time go-full)
+					                                                       :hi (sig-value->time go-full)))
+			                                           ((sig-value->value left-internal)
+			                                            (interval-add (make-interval :lo (sig-value->time left-internal)
+						                                                                   :hi (sig-value->time left-internal))
+					                                                      delta))
+			                                           (t
+			                                            (make-interval
+			                                             :lo (+ (sig-value->time left-internal) (* 3 (interval->lo delta)))
+			                                             :hi (+ (sig-value->time left-internal) inf (interval->hi delta)))))))
+                               (interval-add (interval-max empty-time gf-time) delta)))
+                            ;; hard case -- need to figure out when full-internal goes low so we
+                            ;; can then figure out when it goes high again
+                            (full-time (if (sig-value->value full)
+		                                       (make-interval :lo (sig-value->time full)
+				                                                  :hi (sig-value->time full))
+		                                     (interval-add (make-interval :lo (sig-value->time full-internal)
+					                                                            :hi (sig-value->time full-internal))
+			                                                 delta)))
+                            (ge-time
+                             (cond ((sig-value->value go-empty)
+	                                  (make-interval :lo (sig-value->time go-empty)
+			                                             :hi (sig-value->time go-empty)))
+	                                 ((not (sig-value->value right-internal))
+	                                  (interval-add
+	                                   (make-interval :lo (sig-value->time right-internal)
+			                                              :hi (sig-value->time right-internal))
+	                                   delta))
+	                                 (t ;; right-internal.value
+	                                  (make-interval :lo (+ (sig-value->time right-internal)
+				                                                  (* 3 (interval->lo delta)))
+			                                             :hi (+ (sig-value->time right-internal) inf (interval->hi delta))))))
+                            ;; fi-nil-time time bounds for next transition of full-internal to nil
+                            (fi-nil-time (interval-add (interval-max full-time ge-time) delta))
+                            ;; now figure out bounds for full-internal going back to nil
+                            ;; empty goes to t to enable full-internal going to t
+                            (empty-time (interval-add fi-nil-time delta))
+                            (left-internal-time (sig-value->time left-internal))
+                            (gf-time (cond ((and (sig-value->value left-internal)
+			                                           (sig-value->value go-full))
+		                                        (make-interval :lo (sig-value->time go-full)
+				                                                   :hi (sig-value->time go-full)))
+		                                       ((sig-value->value left-internal)
+		                                        (interval-add (make-interval
+				                                                   :lo left-internal-time
+				                                                   :hi left-internal-time)
+				                                                  delta))
+		                                       (t ;; left-internal must be nil
+		                                        (make-interval :lo (+ left-internal-time (* 3 (interval->lo delta)))
+				                                                   :hi (+ left-internal-time inf (interval->hi delta)))))))
+                           (interval-add (interval-max empty-time gf-time) delta)))
+
+(define empty-next ((target booleanp) (testbench asp-stage-testbench-p))
+  :returns (bounds interval-p)
+  (use-asp-stage-testbench testbench nil
+                           (interval-add
+                            (if (and (not (equal (sig-value->value empty) target))
+	                                   (not (equal (sig-value->value full-internal) target)))
+	                              (make-interval :lo (sig-value->time full-internal)
+		                                           :hi (sig-value->time full-internal))
+                              (if target
+	                                (full-internal-next-nil testbench)
+	                              (full-internal-next-t testbench)))
+                            delta)))
 
 (define full-next ((target booleanp)
-                   (go-full sig-value-p)
-                   (go-empty sig-value-p)
-                   (full sig-value-p)
-                   (empty sig-value-p)
-                   (full-internal sig-value-p)
-                   (left-internal sig-value-p)
-                   (right-internal sig-value-p)
-                   (delta interval-p)
-                   (inf rationalp))
+                   (testbench asp-stage-testbench-p))
   :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-full (sig-value-fix go-full))
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (empty (sig-value-fix empty))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta)))
-    ;; the real logical constraints
-    (interval-add
-     (if (and (not (equal (sig-value->value full) target))
-              (equal (sig-value->value full-internal) target))
-         (make-interval :lo (sig-value->time full-internal)
-                        :hi (sig-value->time full-internal))
-       (if target
-           (full-internal-next-t go-full go-empty full empty full-internal
-                                   left-internal right-internal delta inf)
-         (full-internal-next-nil go-full go-empty full empty full-internal
-                               left-internal right-internal delta inf)))
-     delta)))
+  (use-asp-stage-testbench testbench nil
+                           (interval-add
+                            (if (and (not (equal (sig-value->value full) target))
+	                                   (equal (sig-value->value full-internal) target))
+	                              (make-interval :lo (sig-value->time full-internal)
+		                                           :hi (sig-value->time full-internal))
+                              (if target
+	                                (full-internal-next-t testbench)
+	                              (full-internal-next-nil testbench)))
+                            delta)))
 
-(define left-internal-next-nil ((go-full sig-value-p)
-                                (empty sig-value-p)
-                                (full-internal sig-value-p)
-                                (left-internal sig-value-p)
-                                (delta interval-p)
-                                (inf rationalp))
+(define left-internal-next-nil ((testbench asp-stage-testbench-p))
   :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-full (sig-value-fix go-full))
-       (empty (sig-value-fix empty))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (delta (interval-fix delta))
-       ;; real logical constraints
-       ;; empty: time for empty when it is (next or currently) true
-       (empty-time (cond ((and (not (sig-value->value full-internal))
-                               (sig-value->value empty))
-                          (make-interval :lo (sig-value->time empty)
-                                         :hi (sig-value->time empty)))
-                         ((not (sig-value->value full-internal))
-                          (interval-add (make-interval
-                                         :lo (sig-value->time full-internal)
-                                         :hi (sig-value->time full-internal))
-                                        delta))
-                         (t ;;full-internal.value
-                          (make-interval :lo (+ (sig-value->time full-internal)
-                                                (* 3 (interval->lo delta)))
-                                         :hi (+ (sig-value->time full-internal)
-                                                inf)))))
-       ;; easy case -- just need to figure out when left-internal drops
-       ((if (sig-value->value left-internal))
-        ;; figure out bounds for empty and go-full.  Then, get the bound for left-internal
-        (b* ((gf-time (if (sig-value->value go-full)
-                          (make-interval :lo (sig-value->time go-full)
-                                         :hi (sig-value->time go-full))
-                        (interval-add (make-interval :lo (sig-value->time left-internal)
-                                                     :hi (sig-value->time left-internal))
-                                      delta))))
-          (interval-add (interval-max empty-time gf-time) delta)))
-       ;; hard case -- need to figure out when left-internal goes high so we
-       ;; can then figure out when it drops again
-       ;; li-t-time time bounds for next transition of left-internal to t
-       (li-t-time (interval-add (make-interval :lo (sig-value->time left-internal)
-                                               :hi (sig-value->time left-internal))
-                                (make-interval :lo (* 2 (interval->lo delta))
-                                               :hi inf)))
-       ;; now figure out bounds for left-internal going back to nil
-       ;; go-full goes to t to enable left-internal going to nil
-       (gf-time (interval-add li-t-time delta)))
-    (interval-add (interval-max gf-time empty-time) delta))
+  (use-asp-stage-testbench testbench
+                           (((if (sig-value->value left-internal)) ;; easy case -- just need to figure out when left-internal drops
+                             ;; figure out bounds for empty and go-full.  Then, get the bound for left-internal
+                             (b* ((empty-time  ;; when does empty become t ?
+	                                 (cond ((sig-value->value empty)  ;; it already is t
+		                                      (make-interval :lo (sig-value->time empty)
+				                                                 :hi (sig-value->time empty)))
+		                                     ((not (sig-value->value full-internal)) ;; empty is nil, but full-internal is nil, just propagate (not full-internal) to empty
+		                                      (interval-add (make-interval
+				                                                 :lo (sig-value->time full-internal)
+				                                                 :hi (sig-value->time full-internal))
+				                                                delta))
+		                                     (t ;; full-internal is t, it could become nil after 2*delta.lo, then add delta.lo to propagate to empty
+		                                      (make-interval :lo (+ (sig-value->time full-internal)
+					                                                      (* 3 (interval->lo delta)))
+				                                                 :hi (+ (sig-value->time full-internal) ;; full-internal could stay low indefinitely
+					                                                      inf)))))
+	                                (gf-time (if (sig-value->value go-full)
+		                                           (make-interval :lo (sig-value->time go-full)
+				                                                      :hi (sig-value->time go-full))
+		                                         (interval-add (make-interval :lo (sig-value->time left-internal)
+						                                                              :hi (sig-value->time left-internal))
+				                                                   delta))))
+                               (interval-add (interval-max empty-time gf-time) delta)))
+                            ;; hard case -- need to figure out when left-internal goes high so we
+                            ;; can then figure out when it drops again
+                            ;; li-t-time time bounds for next transition of left-internal to t
+                            (empty-time (interval-add (full-internal-next-nil testbench) delta))
+                            (li-t-time (interval-add (make-interval :lo (sig-value->time left-internal)
+					                                                          :hi (sig-value->time left-internal))
+			                                               (make-interval :lo (* 2 (interval->lo delta))
+					                                                          :hi inf)))
+                            ;; now figure out bounds for left-internal going back to nil
+                            ;; go-full goes to t to enable left-internal going to nil
+                            (gf-time (interval-add li-t-time delta)))
+                           (interval-add (interval-max gf-time empty-time) delta)))
+
+
+
+(define left-internal-next-t ((testbench asp-stage-testbench-p))
+  :returns (bounds interval-p)
+  (use-asp-stage-testbench testbench
+                           ((li-nil-time (if (not (sig-value->value left-internal))
+		                                         (make-interval :lo (sig-value->time left-internal)
+				                                                    :hi (sig-value->time left-internal))
+		                                       (left-internal-next-nil testbench))))
+                           (interval-add li-nil-time (make-interval :lo (* 2 (interval->lo delta))
+                                                                    :hi inf))))
+
+(define go-full-next ((target booleanp) (testbench asp-stage-testbench-p))
+  :returns (bounds interval-p)
+  (use-asp-stage-testbench testbench nil
+                           (interval-add
+                            (if (and (not (equal (sig-value->value go-full) target))
+	                                   (equal (sig-value->value left-internal) target))
+	                              (make-interval :lo (sig-value->time left-internal)
+			                                         :hi (sig-value->time left-internal))
+	                            (if target
+	                                (left-internal-next-t testbench)
+	                              (left-internal-next-nil testbench)))
+                            delta)))
+
+(define right-internal-next-t ((testbench asp-stage-testbench-p))
+  :returns (bounds interval-p)
+  (use-asp-stage-testbench testbench
+                           (((if (not (sig-value->value right-internal))) ;; easy case -- just need to figure out when right-internal goes high
+                             ;; figure out bounds for full and go-empty.  Then, get the bound for right-internal
+                             (b* ((full-time  ;; when does full become t ?
+	                                 (cond ((sig-value->value full)  ;; it already is t
+		                                      (make-interval :lo (sig-value->time full)
+				                                                 :hi (sig-value->time full)))
+		                                     ((sig-value->value full-internal) ;; full is nil, but full-internal is t, just propagate full-internal to full
+		                                      (interval-add (make-interval
+				                                                 :lo (sig-value->time full-internal)
+				                                                 :hi (sig-value->time full-internal))
+			                                                  delta))
+		                                     (t ;; full-internal is nil, it could become t after 2*delta.lo, then add delta.lo to propagate to full
+		                                      (make-interval :lo (+ (sig-value->time full-internal)
+				                                                        (* 3 (interval->lo delta)))
+				                                                 :hi (+ (sig-value->time full-internal) ;; full-internal could stay low indefinitely
+				                                                        inf)))))   ;; we could get a tighter bound by looking at left-internal, go-full, and empty
+						                      ;; but I *really* hope we don't need to do that.
+	                                (ge-time (if (sig-value->value go-empty)
+		                                           (make-interval :lo (sig-value->time go-empty)
+				                                                      :hi (sig-value->time go-empty))
+		                                         (interval-add (make-interval :lo (sig-value->time right-internal)
+						                                                              :hi (sig-value->time right-internal))
+				                                                   delta))))
+                               (interval-add (interval-max full-time ge-time) delta)))
+                            ;; hard case -- need to figure out when right-internal goes low so we
+                            ;; can then figure out when it goes high again
+                            ;; ri-nil-time time bounds for next transition of right-internal to nil
+                            (full-time (interval-add (full-internal-next-t testbench) delta))
+                            (ri-nil-time (interval-add (make-interval :lo (sig-value->time right-internal)
+					                                                            :hi (sig-value->time right-internal))
+			                                                 (make-interval :lo (* 2 (interval->lo delta))
+					                                                            :hi inf)))
+                            ;; now figure out bounds for right-internal going back to t
+                            ;; go-empty goes to t to enable right-internal going to t
+                            (ge-time (interval-add ri-nil-time delta)))
+                           (interval-add (interval-max full-time ge-time) delta))
   )
 
-
-(define left-internal-next-t ((go-full sig-value-p)
-                              (empty sig-value-p)
-                              (full-internal sig-value-p)
-                              (left-internal sig-value-p)
-                              (delta interval-p)
-                              (inf rationalp))
+(define right-internal-next-nil ((testbench asp-stage-testbench-p))
   :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-full (sig-value-fix go-full))
-       (empty (sig-value-fix empty))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (delta (interval-fix delta))
-       ;; real logical constraints
-       ;; easy case -- just need to figure out when left-internal rises
-       ((if (not (sig-value->value left-internal)))
-        ;; left-internal should go high after 2 delta
-        (interval-add (make-interval :lo (sig-value->time left-internal)
-                                     :hi (sig-value->time left-internal))
-                      (make-interval :lo (* 2 (interval->lo delta))
-                                     :hi inf)))
-       ;; hard case -- need to figure out when full-internal goes low so we
-       ;; can then figure out when it goes high again
-       (gf-time (if (sig-value->value go-full)
-                    (make-interval :lo (sig-value->time go-full)
-                                   :hi (sig-value->time go-full))
-                  (interval-add (make-interval :lo (sig-value->time left-internal)
-                                               :hi (sig-value->time left-internal))
-                                delta)))
-       ;; empty: time for empty when it is (next or currently) true
-       (empty-time (cond ((and (not (sig-value->value full-internal))
-                               (sig-value->value empty))
-                          (make-interval :lo (sig-value->time empty)
-                                         :hi (sig-value->time empty)))
-                         ((not (sig-value->value full-internal))
-                          (interval-add (make-interval
-                                         :lo (sig-value->time full-internal)
-                                         :hi (sig-value->time full-internal))
-                                        delta))
-                         (t ;;full-internal.value
-                          (make-interval :lo (+ (sig-value->time full-internal)
-                                                (* 3 (interval->lo delta)))
-                                         :hi (+ (sig-value->time full-internal)
-                                                inf)))))
-       ;; li-nil-time time bounds for next transition of left-internal to nil
-       (li-nil-time (interval-add (interval-max gf-time empty-time) delta)))
-    ;; now figure out bounds for left-internal going back to t
-    (interval-add li-nil-time (make-interval :lo (* 2 (interval->lo delta))
-                                             :hi inf)))
-  )
-
-(define go-full-next ((target booleanp)
-                      (go-full sig-value-p)
-                      (empty sig-value-p)
-                      (full-internal sig-value-p)
-                      (left-internal sig-value-p)
-                      (delta interval-p)
-                      (inf rationalp))
-  :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-full (sig-value-fix go-full))
-       (empty (sig-value-fix empty))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (delta (interval-fix delta)))
-    ;; the real logical constraints
-    (interval-add
-     (if (and (not (equal (sig-value->value go-full) target))
-              (equal (sig-value->value left-internal) target))
-         (make-interval :lo (sig-value->time left-internal)
-                        :hi (sig-value->time left-internal))
-       (if target
-           (left-internal-next-t go-full empty full-internal
-                                   left-internal delta inf)
-         (left-internal-next-nil go-full empty full-internal
-                               left-internal delta inf)))
-     delta)))
-
-(define right-internal-next-t ((go-empty sig-value-p)
-                               (full sig-value-p)
-                               (full-internal sig-value-p)
-                               (right-internal sig-value-p)
-                               (delta interval-p)
-                               (inf rationalp))
-  :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (full-internal (sig-value-fix full-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta))
-       ;; real logical constraints
-       ;; full-time: time for full when it is (next or currently) true
-       (full-time (cond ((and (sig-value->value full-internal)
-                              (sig-value->value full))
-                         (make-interval :lo (sig-value->time full)
-                                        :hi (sig-value->time full)))
-                        ((sig-value->value full-internal)
-                         (interval-add (make-interval
-                                        :lo (sig-value->time full-internal)
-                                        :hi (sig-value->time full-internal))
-                                       delta))
-                        (t ;;(not full-internal.value)
-                         (make-interval :lo (+ (sig-value->time full-internal)
-                                               (* 3 (interval->lo delta)))
-                                        :hi (+ (sig-value->time full-internal)
-                                               inf)))))
-       ;; easy case -- just need to figure out when right-internal goes high
-       ((if (not (sig-value->value right-internal)))
-        ;; figure out bounds for full and go-empty.  Then, get the bound for right-internal
-        (b* ((ge-time (if (sig-value->value go-empty)
-                          (make-interval :lo (sig-value->time go-empty)
-                                         :hi (sig-value->time go-empty))
-                        (interval-add (make-interval :lo (sig-value->time right-internal)
-                                                     :hi (sig-value->time right-internal))
-                                      delta))))
-          (interval-add (interval-max full-time ge-time) delta)))
-       ;; hard case -- need to figure out when right-internal goes low so we
-       ;; can then figure out when it goes high again
-       ;; ri-nil-time time bounds for next transition of right-internal to nil
-       (ri-nil-time (interval-add (make-interval :lo (sig-value->time right-internal)
-                                                 :hi (sig-value->time right-internal))
-                                  (make-interval :lo (* 2 (interval->lo delta))
-                                                 :hi inf)))
-       ;; now figure out bounds for right-internal going back to t
-       ;; go-empty goes to t to enable right-internal going to t
-       (ge-time (interval-add ri-nil-time delta)))
-    (interval-add (interval-max full-time ge-time) delta))
-  )
-
-(define right-internal-next-nil ((go-empty sig-value-p)
-                                 (full sig-value-p)
-                                 (full-internal sig-value-p)
-                                 (right-internal sig-value-p)
-                                 (delta interval-p)
-                                 (inf rationalp))
-  :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (full-internal (sig-value-fix full-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta))
-       ;; real logical constraints
-       ;; easy case -- just need to figure out when right-internal falls
-       ((if (sig-value->value right-internal))
-        ;; right-internal should go low after 2 delta
-        (interval-add (make-interval :lo (sig-value->time right-internal)
-                                     :hi (sig-value->time right-internal))
-                      (make-interval :lo (* 2 (interval->lo delta))
-                                     :hi inf)))
-       ;; hard case -- need to figure out when right-internal goes high so we
-       ;; can then figure out when it goes low again
-       (ge-time (if (sig-value->value go-empty)
-                    (make-interval :lo (sig-value->time go-empty)
-                                   :hi (sig-value->time go-empty))
-                  (interval-add (make-interval :lo (sig-value->time right-internal)
-                                               :hi (sig-value->time right-internal))
-                                delta)))
-       ;; full: time for full when it is (next or currently) true
-       (full-time (cond ((and (sig-value->value full-internal)
-                              (sig-value->value full))
-                         (make-interval :lo (sig-value->time full)
-                                        :hi (sig-value->time full)))
-                        ((sig-value->value full-internal)
-                         (interval-add (make-interval
-                                        :lo (sig-value->time full-internal)
-                                        :hi (sig-value->time full-internal))
-                                       delta))
-                        (t ;;(not full-internal.value)
-                         (make-interval :lo (+ (sig-value->time full-internal)
-                                               (* 3 (interval->lo delta)))
-                                        :hi (+ (sig-value->time full-internal)
-                                               inf)))))
-       ;; ri-t-time time bounds for next transition of right-internal to high
-       (ri-t-time (interval-add (interval-max ge-time full-time) delta)))
-    ;; now figure out bounds for right-internal going back to t
-    (interval-add ri-t-time (make-interval :lo (* 2 (interval->lo delta))
-                                           :hi inf)))
-  )
+  (use-asp-stage-testbench testbench
+                           ((ri-t-time (if (sig-value->value right-internal)
+		                                       (make-interval :lo (sig-value->time right-internal)
+				                                                  :hi (sig-value->time right-internal))
+		                                     (right-internal-next-t testbench))))
+                           (interval-add ri-t-time (make-interval :lo (* 2 (interval->lo delta))
+                                                                  :hi inf))))
 
 (define go-empty-next ((target booleanp)
-                       (go-empty sig-value-p)
-                       (full sig-value-p)
-                       (full-internal sig-value-p)
-                       (right-internal sig-value-p)
-                       (delta interval-p)
-                       (inf rationalp))
+                       (testbench asp-stage-testbench-p))
   :returns (bounds interval-p)
-  (b* (;; fixing types
-       (go-empty (sig-value-fix go-empty))
-       (full (sig-value-fix full))
-       (full-internal (sig-value-fix full-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta)))
-    ;; the real logical constraints
-    (interval-add
-     (if (and (not (equal (sig-value->value go-empty) target))
-              (not (equal (sig-value->value right-internal) target)))
-         (make-interval :lo (sig-value->time right-internal)
-                        :hi (sig-value->time right-internal))
-       (if target
-           (right-internal-next-nil go-empty full full-internal
-                                    right-internal delta inf)
-         (right-internal-next-t go-empty full full-internal
-                                right-internal delta inf)))
-     delta)))
+  (use-asp-stage-testbench testbench nil
+                           (interval-add
+                            (if (and (not (equal (sig-value->value go-empty) target))
+	                                   (not (equal (sig-value->value right-internal) target)))
+	                              (make-interval :lo (sig-value->time right-internal)
+		                                           :hi (sig-value->time right-internal))
+                              (if target
+	                                (right-internal-next-nil testbench)
+	                              (right-internal-next-t testbench)))
+                            delta)))
 
 ;; ------------------------------------------------------------------------------
 
 ;; starting from start of (and empty gf)
 ;; 1. last(li_down, fi_up) < first(empty_down, gf_down)
 ;; 2. last(empty_down, gf_down) < first(empty_up, gf_up)
-(define interact-lenv-failed ((go-full sig-value-p)
-                              (go-empty sig-value-p)
-                              (full sig-value-p)
-                              (empty sig-value-p)
-                              (full-internal sig-value-p)
-                              (left-internal sig-value-p)
-                              (right-internal sig-value-p)
-                              (delta interval-p)
-                              (inf rationalp))
+(define interact-lenv-failed ((testbench asp-stage-testbench-p))
   :returns (failed-clauses integer-list-p)
-  (b* ((go-empty (sig-value-fix go-empty))
-       (go-full (sig-value-fix go-full))
-       (empty (sig-value-fix empty))
-       (full (sig-value-fix full))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta))
-       (li_down (left-internal-next-nil go-full empty full-internal
-                                        left-internal delta inf))
-       (fi_up (full-internal-next-t go-full go-empty full empty full-internal
-                                    left-internal right-internal delta inf))
-       (empty_down (empty-next nil go-full go-empty full empty
-                               full-internal left-internal right-internal
-                               delta inf))
-       (gf_down (go-full-next nil go-full empty full-internal
-                              left-internal delta inf))
-       (empty_up (empty-next t go-full go-empty full empty
-                             full-internal left-internal right-internal
-                             delta inf))
-       (gf_up (go-full-next t go-full empty full-internal
-                            left-internal delta inf))
-       (failed (integer-list-fix nil))
-       ;; logical constraints
-       (failed (if (implies (and (sig-value->value empty)
-                                 (sig-value->value go-full))
-                            (and (< (max (interval->hi li_down)
-                                         (interval->hi fi_up))
-                                    (min (interval->lo empty_down)
-                                         (interval->lo gf_down)))
-                                 (< (max (interval->hi empty_down)
-                                         (interval->hi gf_down))
-                                    (min (interval->lo empty_up)
-                                         (interval->lo gf_up)))))
-                   failed
-                 (cons 1 (integer-list-fix failed)))))
-    failed))
+  (use-asp-stage-testbench testbench
+                           ((li_down (if (sig-value->value left-internal)
+		                                     (left-internal-next-nil testbench)
+	                                     (make-interval :lo (sig-value->time left-internal)
+			                                                :hi (sig-value->time left-internal))))
+                            (fi_up (if (sig-value->value full-internal)
+	                                     (make-interval :lo (sig-value->time full-internal)
+			                                                :hi (sig-value->time full-internal))
+	                                   (full-internal-next-t testbench)))
+                            (empty_down (if (sig-value->value empty)
+                                            (empty-next nil testbench)
+		                                      (make-interval :lo (sig-value->time empty)
+		                                                     :hi (sig-value->time empty))))
+                            (gf_down (if (sig-value->value go-full)
+		                                     (go-full-next nil testbench)
+	                                     (make-interval :lo (sig-value->time go-full)
+			                                                :hi (sig-value->time go-full))))
+                            (empty_up (empty-next t testbench))
+                            (gf_up (go-full-next t testbench))
+                            (failed (integer-list-fix nil))
+                            ;; logical constraints
+                            (failed (if (implies (and (sig-value->value empty)
+			                                                (sig-value->value go-full))
+			                                           (< (max (interval->hi li_down)
+				                                                 (interval->hi fi_up))
+			                                              (min (interval->lo empty_down)
+				                                                 (interval->lo gf_down))))
+		                                    failed
+		                                  (cons 1 (integer-list-fix failed))))
+                            (failed (if (implies (or (and (sig-value->value empty)
+				                                                  (or (sig-value->value go-full)
+				                                                      (sig-value->value full-internal)))
+			                                               (and (sig-value->value go-full)
+				                                                  (or (sig-value->value empty)
+				                                                      (not (sig-value->value left-internal)))))
+			                                           (< (max (interval->hi empty_down)
+				                                                 (interval->hi gf_down))
+			                                              (min (interval->lo empty_up)
+				                                                 (interval->lo gf_up))))
+		                                    failed
+		                                  (cons 2 (integer-list-fix failed)))))
+                           failed))
 
-(define interact-lenv ((go-full sig-value-p)
-                       (go-empty sig-value-p)
-                       (full sig-value-p)
-                       (empty sig-value-p)
-                       (full-internal sig-value-p)
-                       (left-internal sig-value-p)
-                       (right-internal sig-value-p)
-                       (delta interval-p)
-                       (inf rationalp))
+(define interact-lenv ((testbench asp-stage-testbench-p))
   :returns (ok booleanp)
-  (equal (interact-lenv-failed go-full go-empty full empty full-internal
-                               left-internal right-internal delta inf)
+  (equal (interact-lenv-failed testbench)
          (integer-list-fix nil)))
 
 ;; starting from start of (and full ge)
 ;; 1. last(fi_down, ri_up) < first(full_down, ge_down)
 ;; 2. last(full_down, ge_down) < first(full_up, ge_up)
-(define interact-renv-failed ((go-full sig-value-p)
-                              (go-empty sig-value-p)
-                              (full sig-value-p)
-                              (empty sig-value-p)
-                              (full-internal sig-value-p)
-                              (left-internal sig-value-p)
-                              (right-internal sig-value-p)
-                              (delta interval-p)
-                              (inf rationalp))
+(define interact-renv-failed ((testbench asp-stage-testbench-p))
   :returns (failed-clauses integer-list-p)
-  (b* ((go-empty (sig-value-fix go-empty))
-       (go-full (sig-value-fix go-full))
-       (empty (sig-value-fix empty))
-       (full (sig-value-fix full))
-       (full-internal (sig-value-fix full-internal))
-       (left-internal (sig-value-fix left-internal))
-       (right-internal (sig-value-fix right-internal))
-       (delta (interval-fix delta))
-       (fi_down (full-internal-next-nil go-full go-empty full empty full-internal
-                                        left-internal right-internal delta
-                                        inf))
-       (ri_up (right-internal-next-t go-empty full full-internal
-                                     right-internal delta inf))
-       (full_down (full-next nil go-full go-empty full empty full-internal
-                             left-internal right-internal delta inf))
-       (ge_down (go-empty-next nil go-empty full full-internal right-internal
-                               delta inf))
-       (full_up (full-next t go-full go-empty full empty full-internal
-                           left-internal right-internal delta inf))
-       (ge_up (go-empty-next t go-empty full full-internal right-internal
-                             delta inf))
-       (failed (integer-list-fix nil))
-       ;; logical constraints
-       (failed (if (implies (and (sig-value->value full)
-                                 (sig-value->value go-empty))
-                            (and (< (max (interval->hi fi_down)
-                                         (interval->hi ri_up))
-                                    (min (interval->lo full_down)
-                                         (interval->lo ge_down)))
-                                 (< (max (interval->hi full_down)
-                                         (interval->hi ge_down))
-                                    (min (interval->lo full_up)
-                                         (interval->lo ge_up)))))
-                   failed
-                 (cons 1 (integer-list-fix failed)))))
-    failed))
+  (use-asp-stage-testbench testbench
+                           ((fi_down (if (sig-value->value full-internal)
+		                                     (full-internal-next-nil testbench)
+		                                   (make-interval :lo (sig-value->time full-internal)
+				                                              :hi (sig-value->time full-internal))))
+                            (ri_up (if (sig-value->value right-internal)
+	                                     (make-interval :lo (sig-value->time right-internal)
+			                                                :hi (sig-value->time right-internal))
+	                                   (right-internal-next-t testbench)))
+                            (full_down (if (sig-value->value full)
+		                                       (full-next nil testbench)
+		                                     (make-interval :lo (sig-value->time full)
+				                                                :hi (sig-value->time full))))
+                            (ge_down (if (sig-value->value go-empty)
+	                                       (go-empty-next nil testbench)
+	                                     (make-interval :lo (sig-value->time go-empty)
+			                                                :hi (sig-value->time go-empty))))
+                            (full_up (full-next t testbench))
+                            (ge_up (go-empty-next t testbench))
+                            (failed (integer-list-fix nil))
+                            ;; logical constraints
+                            (failed (if (implies (and (sig-value->value full)
+			                                                (sig-value->value go-empty))
+			                                           (< (max (interval->hi fi_down)
+				                                                 (interval->hi ri_up))
+			                                              (min (interval->lo full_down)
+				                                                 (interval->lo ge_down))))
+		                                    failed
+		                                  (cons 1 (integer-list-fix failed))))
+                            (failed (if (implies (or (and (sig-value->value full)
+				                                                  (or (sig-value->value go-empty)
+				                                                      (not (sig-value->value full-internal))))
+			                                               (and (sig-value->value go-empty)
+				                                                  (or (sig-value->value full)
+				                                                      (sig-value->value right-internal))))
+			                                           (< (max (interval->hi full_down)
+				                                                 (interval->hi ge_down))
+			                                              (min (interval->lo full_up)
+				                                                 (interval->lo ge_up))))
+		                                    failed
+		                                  (cons 2 (integer-list-fix failed)))))
+                           failed))
 
-(define interact-renv ((go-full sig-value-p)
-                       (go-empty sig-value-p)
-                       (full sig-value-p)
-                       (empty sig-value-p)
-                       (full-internal sig-value-p)
-                       (left-internal sig-value-p)
-                       (right-internal sig-value-p)
-                       (delta interval-p)
-                       (inf rationalp))
+(define interact-renv ((testbench asp-stage-testbench-p))
   :returns (ok booleanp)
-  (equal (interact-renv-failed go-full go-empty full empty full-internal
-                               left-internal right-internal delta inf)
+  (equal (interact-renv-failed testbench)
          (integer-list-fix nil)))
+
+(set-ignore-ok nil)
 
 ;; ------------------------------------------------------------------------------
 
@@ -1985,14 +1801,22 @@
        (right-internal (cdr (smt::magic-fix
                              'sig-path_sig-value
                              (assoc-equal right-internal-sig
-                                          (gstate-fix curr))))))
-  (and (invariant-stage go-full go-empty full empty full-internal delta tcurr)
-       (invariant-lenv go-full empty left-internal delta tcurr)
-       (invariant-renv go-empty full right-internal delta tcurr)
-       (interact-lenv go-full go-empty full empty full-internal left-internal
-                      right-internal delta inf)
-       (interact-renv go-full go-empty full empty full-internal left-internal
-                      right-internal delta inf))))
+                                          (gstate-fix curr)))))
+       (testbench (make-asp-stage-testbench
+		               :go-full go-full
+		               :go-empty go-empty
+		               :full full
+		               :empty empty
+		               :full-internal full-internal
+		               :left-internal left-internal
+		               :right-internal right-internal
+		               :delta delta
+		               :inf inf)))
+    (and (invariant-stage go-full go-empty full empty full-internal delta tcurr)
+	       (invariant-lenv go-full empty left-internal delta tcurr)
+	       (invariant-renv go-empty full right-internal delta tcurr)
+	       (interact-lenv testbench)
+	       (interact-renv testbench))))
 
 (define invariant-trace ((a asp-stage-p) (el lenv-p)
                          (er renv-p) (tr gtrace-p)
@@ -2007,63 +1831,71 @@
          (invariant-trace a el er rest inf))))
 
 (std::must-fail
-(defthm invariant-check-contradiction
-  (not (and (asp-stage-p a)
-            (lenv-p el)
-            (renv-p er)
-            (asp-connection a el er)
-            (gtrace-p tr)
-            (lenv-valid el tr)
-            (renv-valid er tr)
-            (asp-valid a tr)
-            (valid-interval (asp-stage->delta a))
-            (valid-interval (lenv->delta el))
-            (valid-interval (renv->delta er))
-            (equal (interval->lo (asp-stage->delta a))
-                   8)
-            (equal (interval->hi (asp-stage->delta a))
-                   10)
-            (equal (interval->lo (asp-stage->delta a))
-                   (interval->lo (lenv->delta el)))
-            (equal (interval->hi (asp-stage->delta a))
-                   (interval->hi (lenv->delta el)))
-            (equal (interval->lo (asp-stage->delta a))
-                   (interval->lo (renv->delta er)))
-            (equal (interval->hi (asp-stage->delta a))
-                   (interval->hi (renv->delta er)))
-            (consp (gtrace-fix tr))
-            (invariant a el er
-                       (gstate-t->statet (car (gtrace-fix tr)))
-                       (gstate-t->statev (car (gtrace-fix tr)))
-                       1000))) ;; inf can be any value
-  :hints (("Goal"
-           :smtlink
-           (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
-                            sig-path-list sig-path sig maybe-integer
-                            maybe-rational target-tuple integer-list)
-                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
-                                                           (st gstate-p))
-                                                 :returns ((ok booleanp))
-                                                 :level 5)
-                             (sigs-in-bool-trace :formals ((sigs sig-path-listp)
-                                                           (tr gstate-p))
-                                                 :returns ((ok booleanp))
-                                                 :level 2)
-                             (lenv-valid :formals ((e lenv-p)
+ (defthm invariant-check-contradiction
+   (not (and (asp-stage-p a)
+             (lenv-p el)
+             (renv-p er)
+             (asp-connection a el er)
+             (gtrace-p tr)
+             (lenv-valid el tr)
+             (renv-valid er tr)
+             (asp-valid a tr)
+             (valid-interval (asp-stage->delta a))
+             (valid-interval (lenv->delta el))
+             (valid-interval (renv->delta er))
+             (equal (interval->lo (asp-stage->delta a))
+                    8)
+             (equal (interval->hi (asp-stage->delta a))
+                    10)
+             (equal (interval->lo (asp-stage->delta a))
+                    (interval->lo (lenv->delta el)))
+             (equal (interval->hi (asp-stage->delta a))
+                    (interval->hi (lenv->delta el)))
+             (equal (interval->lo (asp-stage->delta a))
+                    (interval->lo (renv->delta er)))
+             (equal (interval->hi (asp-stage->delta a))
+                    (interval->hi (renv->delta er)))
+             (consp (gtrace-fix tr))
+             (invariant a el er
+                        (gstate-t->statet (car (gtrace-fix tr)))
+                        (gstate-t->statev (car (gtrace-fix tr)))
+                        1000))) ;; inf can be any value
+   :hints (("Goal"
+            :smtlink
+            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
+                             sig-path-list sig-path sig maybe-integer
+                             maybe-rational target-tuple integer-list asp-stage-testbench)
+                  :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                            (st gstate-p))
+                                                  :returns ((ok booleanp))
+                                                  :level 5)
+                              (sigs-in-bool-trace :formals ((sigs sig-path-listp)
+                                                            (tr gstate-p))
+                                                  :returns ((ok booleanp))
+                                                  :level 2)
+                              (lenv-valid :formals ((e lenv-p)
+                                                    (tr gtrace-p))
+                                          :returns ((ok booleanp))
+                                          :level 1)
+                              (renv-valid :formals ((e renv-p)
+                                                    (tr gtrace-p))
+                                          :returns ((ok booleanp))
+                                          :level 1)
+                              (asp-valid :formals ((a asp-stage-p)
                                                    (tr gtrace-p))
                                          :returns ((ok booleanp))
                                          :level 1)
-                             (renv-valid :formals ((e renv-p)
-                                                   (tr gtrace-p))
-                                         :returns ((ok booleanp))
-                                         :level 1)
-                             (asp-valid :formals ((a asp-stage-p)
-                                                  (tr gtrace-p))
-                                        :returns ((ok booleanp))
-                                        :level 1)
-                             )
-                 ))))
-)
+                              )
+                  ))))
+ )
+
+(set-evisc-tuple (evisc-tuple 3   ; print-level
+                              4   ; print-length
+                              nil ; alist
+                              nil ; hiding-cars
+                              )
+                 :iprint :same ; better yet, T
+                 :sites :all)
 
 (defthm invariant-thm
   (implies (and (asp-stage-p a)
@@ -2105,32 +1937,36 @@
            :smtlink
            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
                             sig-path-list sig-path sig maybe-integer
-                            maybe-rational target-tuple integer-list)
-	    :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
-						      (st gstate-p))
-					    :returns ((ok booleanp))
-					    :level 5)
-			(sigs-in-bool-trace :formals ((sigs sig-path-listp)
-						      (tr gstate-p))
-					    :returns ((ok booleanp))
-					    :level 2)
-			(lenv-valid :formals ((e lenv-p)
-					      (tr gtrace-p))
-				    :returns ((ok booleanp))
-				    :level 1)
-			(renv-valid :formals ((e renv-p)
-					      (tr gtrace-p))
-				    :returns ((ok booleanp))
-				    :level 1)
-			(asp-valid :formals ((a asp-stage-p)
-					     (tr gtrace-p))
-				   :returns ((ok booleanp))
-				   :level 1)
-			(tag-b :formals ((b booleanp)
-					 (n integerp))
-			       :returns ((res booleanp))
-			       :level 1)
-			)
-	    :smt-fname "inv-theorem.py"
-	    :smt-dir "smtpy"
+                            maybe-rational target-tuple integer-list asp-stage-testbench)
+	               :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+						                                               (st gstate-p))
+					                                       :returns ((ok booleanp))
+					                                       :level 5)
+			                       (sigs-in-bool-trace :formals ((sigs sig-path-listp)
+						                                               (tr gstate-p))
+					                                       :returns ((ok booleanp))
+					                                       :level 2)
+			                       (lenv-valid :formals ((e lenv-p)
+					                                         (tr gtrace-p))
+				                                 :returns ((ok booleanp))
+				                                 :level 1)
+			                       (renv-valid :formals ((e renv-p)
+					                                         (tr gtrace-p))
+				                                 :returns ((ok booleanp))
+				                                 :level 1)
+			                       (asp-valid :formals ((a asp-stage-p)
+					                                        (tr gtrace-p))
+				                                :returns ((ok booleanp))
+				                                :level 1)
+			                       (tag-b :formals ((b booleanp)
+					                                    (n integerp))
+			                              :returns ((res booleanp))
+			                              :level 1)
+			                       )
+	               :smt-fname "inv-theorem.py"
+	               :smt-dir "smtpy"
+                 :precond-hint (:by nil)
+                 :type-hint (:by nil)
+                 :evilp t
                  ))))
+
