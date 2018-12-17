@@ -135,6 +135,13 @@
        ((unless (sig-value->value hd)) nil))
     (sig-and-fun tl)))
 
+;; Yan's temporary solution
+(defmacro sig-and2 (siga sigb)
+  `(sig-and-fun (cons ,siga
+                      (sig-value-list-fix
+                       (cons ,sigb
+                             (sig-value-list-fix nil))))))
+
 (defmacro sig-and (&rest rst)
   `(sig-and-fun (list ,@rst)))
 
@@ -153,6 +160,18 @@
   :returns (v interval-p)
   (b* ((u (sig-max-time-help sigs currmax)))
     (make-interval :lo u :hi u)))
+
+;; Yan's temporary solution
+(defmacro sig-max-time1 (sig0)
+  `(sig-max-time-fun (cons ,sig0 (sig-value-list-fix nil))
+                     (sig-value->time ,sig0)))
+
+(defmacro sig-max-time2 (sig0 sig1)
+  `(sig-max-time-fun (cons ,sig0
+                           (sig-value-list-fix
+                            (cons ,sig1
+                                  (sig-value-list-fix nil))))
+                     (sig-value->time ,sig0)))
 
 (defmacro sig-max-time (sig0 &rest rst)
   `(sig-max-time-fun (list ,@rst) (sig-value->time ,sig0)))
@@ -266,10 +285,10 @@
        (gf-next (state-get gf next.statev))
        (li-prev (state-get li prev.statev))
        (li-next (state-get li next.statev))
-       (li-target (if (sig-and ack-in-prev gf-prev)
+       (li-target (if (sig-and2 ack-in-prev gf-prev)
                       (make-sig-target
                        :value nil
-                       :time (interval-add (sig-max-time ack-in-prev gf-prev)
+                       :time (interval-add (sig-max-time2 ack-in-prev gf-prev)
                                            delta))
                     (sig-target-from-signal li-prev)))
        ((unless (sig-check-transition li-prev li-next li-target prev.statet
@@ -279,7 +298,7 @@
                              (sig-value->value li-prev))
                       (sig-target-from-signal gf-prev)
                     (make-sig-target :value (sig-value->value li-prev)
-                                     :time (interval-add (sig-max-time li-prev)
+                                     :time (interval-add (sig-max-time1 li-prev)
                                                          delta))))
        ((unless (sig-check-transition gf-prev gf-next gf-target prev.statet
                                       next.statet))
@@ -325,10 +344,10 @@
        (ge-next (state-get ge next.statev))
        (ri-prev (state-get ri prev.statev))
        (ri-next (state-get ri next.statev))
-       (ri-target (if (sig-and req-in-prev ge-prev)
+       (ri-target (if (sig-and2 req-in-prev ge-prev)
                       (make-sig-target
                        :value nil
-                       :time (interval-add (sig-max-time req-in-prev ge-prev)
+                       :time (interval-add (sig-max-time2 req-in-prev ge-prev)
                                            delta))
                     (sig-target-from-signal ri-prev)))
        ((unless (sig-check-transition ri-prev ri-next ri-target prev.statet
@@ -338,7 +357,7 @@
                              (sig-value->value ri-prev))
                       (sig-target-from-signal ge-prev)
                     (make-sig-target :value (sig-value->value ri-prev)
-                                     :time (interval-add (sig-max-time ri-prev)
+                                     :time (interval-add (sig-max-time1 ri-prev)
                                                          delta))))
        ((unless (sig-check-transition ge-prev ge-next ge-target prev.statet
                                       next.statet))
@@ -569,7 +588,7 @@
   :returns(next-time interval-p)
   (with-asp-my-bench b
                      (((if ready)
-                       (interval-add (sig-max-time mx yx) delta)))
+                       (interval-add (sig-max-time2 mx yx) delta)))
                      (make-interval :lo mi.time :hi mi.time)))
 
 ;; internal-next-ready-time: time interval for the *next* time that
@@ -710,9 +729,9 @@ stop
              (renv-valid er tr)
              (valid-interval (lenv->delta el))
              (valid-interval (renv->delta er))
-             (equal (interval->lo (lenv->delta a))
+             (equal (interval->lo (lenv->delta el))
                     8)
-             (equal (interval->hi (lenv->delta a))
+             (equal (interval->hi (lenv->delta el))
                     10)
              ;; (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
              (equal (interval->lo (lenv->delta el))
@@ -756,9 +775,6 @@ stop
                                :returns ((ok booleanp))
                                :level 1)
                               )
-                  :smt-fname "inv-theorem.py"
-                  :smt-dir "smtpy"
-                  :evilp t
                   ))))
  )
 
@@ -771,9 +787,9 @@ stop
                 (renv-valid er tr)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
-                (equal (interval->lo (lenv->delta a))
+                (equal (interval->lo (lenv->delta el))
                        8)
-                (equal (interval->hi (lenv->delta a))
+                (equal (interval->hi (lenv->delta el))
                        10)
                 ;; (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
                 (equal (interval->lo (lenv->delta el))
