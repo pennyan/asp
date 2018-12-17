@@ -529,7 +529,6 @@
                                        mi.time))
                            fail-acc
                          (cons 4 (integer-list-fix fail-acc))))
-
                       ;;   Constraints for mx:  mx follows (ready mi).
                       ;;   If (equal mx my),
                       ;;   then (in mx.time (+ mi.time delta))
