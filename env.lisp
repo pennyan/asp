@@ -285,7 +285,7 @@
                                       next.statet))
         nil)
        ((unless (sig-check-times ack-in-prev ack-in-next prev.statet
-                   next.statet))
+                                 next.statet))
         nil))
     t))
 
@@ -726,40 +726,40 @@ stop
                         (gstate-t->statev (car (gtrace-fix tr)))
                         1000)))
    :hints (("Goal"
-           :smtlink
-           (:fty (lenv renv interval gtrace sig-value gstate gstate-t
-                       sig-path-list sig-path sig sig-target
-                       asp-env-testbench asp-my-bench integer-list
-                       sig-value-list)
-                 :functions ((sigs-in-bool-table
-                              :formals ((sigs sig-path-listp)
-                                        (st gstate-p))
-                              :returns ((ok booleanp))
-                              :level 3)
-                             (sig-max-time-help
-                              :formals ((sigs sig-value-list-p)
-                                        (currmax rationalp))
-                              :returns ((v rationalp))
-                              :level 2)
-                             (sig-and-fun
-                              :formals ((sigs sig-value-list-p))
-                              :returns ((v booleanp))
-                              :level 2)
-                             (lenv-valid
-                              :formals ((e lenv-p)
-                                        (tr gtrace-p))
-                              :returns ((ok booleanp))
-                              :level 1)
-                             (renv-valid
-                              :formals ((e renv-p)
-                                        (tr gtrace-p))
-                              :returns ((ok booleanp))
-                              :level 1)
-                             )
-                 :smt-fname "inv-theorem.py"
-                 :smt-dir "smtpy"
-                 :evilp t
-                 ))))
+            :smtlink
+            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+                        sig-path-list sig-path sig sig-target
+                        asp-env-testbench asp-my-bench integer-list
+                        sig-value-list)
+                  :functions ((sigs-in-bool-table
+                               :formals ((sigs sig-path-listp)
+                                         (st gstate-p))
+                               :returns ((ok booleanp))
+                               :level 3)
+                              (sig-max-time-help
+                               :formals ((sigs sig-value-list-p)
+                                         (currmax rationalp))
+                               :returns ((v rationalp))
+                               :level 2)
+                              (sig-and-fun
+                               :formals ((sigs sig-value-list-p))
+                               :returns ((v booleanp))
+                               :level 2)
+                              (lenv-valid
+                               :formals ((e lenv-p)
+                                         (tr gtrace-p))
+                               :returns ((ok booleanp))
+                               :level 1)
+                              (renv-valid
+                               :formals ((e renv-p)
+                                         (tr gtrace-p))
+                               :returns ((ok booleanp))
+                               :level 1)
+                              )
+                  :smt-fname "inv-theorem.py"
+                  :smt-dir "smtpy"
+                  :evilp t
+                  ))))
  )
 
 (defthm invariant-thm
@@ -811,16 +811,16 @@ stop
                               :formals ((sigs sig-value-list-p))
                               :returns ((v booleanp))
                               :level 2)
-                              (lenv-valid
-                               :formals ((e lenv-p)
-                                         (tr gtrace-p))
-                               :returns ((ok booleanp))
-                               :level 1)
-                              (renv-valid
-                               :formals ((e renv-p)
-                                         (tr gtrace-p))
-                               :returns ((ok booleanp))
-                               :level 1)
+                             (lenv-valid
+                              :formals ((e lenv-p)
+                                        (tr gtrace-p))
+                              :returns ((ok booleanp))
+                              :level 1)
+                             (renv-valid
+                              :formals ((e renv-p)
+                                        (tr gtrace-p))
+                              :returns ((ok booleanp))
+                              :level 1)
                              )
                  :smt-fname "inv-theorem.py"
                  :smt-dir "smtpy"
