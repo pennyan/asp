@@ -716,9 +716,6 @@
                     inf)
          (invariant-trace el er rest inf))))
 
-
-stop
-
 (std::must-fail
  (defthm invariant-check-contradiction
    (not (and (lenv-p el)
@@ -791,7 +788,7 @@ stop
                        8)
                 (equal (interval->hi (lenv->delta el))
                        10)
-                ;; (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
+                (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
                 (equal (interval->lo (lenv->delta el))
                        (interval->lo (renv->delta er)))
                 (equal (interval->hi (lenv->delta el))
