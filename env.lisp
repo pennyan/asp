@@ -355,10 +355,10 @@
         nil)
        (ge-target (if (equal (sig-value->value ge-prev)
                              (sig-value->value ri-prev))
-                      (sig-target-from-signal ge-prev)
-                    (make-sig-target :value (sig-value->value ri-prev)
-                                     :time (interval-add (sig-max-time1 ri-prev)
-                                                         delta))))
+                      (make-sig-target :value (sig-value->value ri-prev)
+                                       :time (interval-add (sig-max-time1 ri-prev)
+                                                           delta))
+                    (sig-target-from-signal ge-prev)))
        ((unless (sig-check-transition ge-prev ge-next ge-target prev.statet
                                       next.statet))
         nil)
@@ -521,7 +521,7 @@
                       ;;   ready went high at least 2*delta.lo after ready went
                       ;;   low.
                       ;;   Therefore mx.time - delta.hi + 2*delta.lo < mi.time.
-                      ;;   ALthough I don't think we need this one for the
+                      ;;   Although I don't think we need this one for the
                       ;;   invariant, I'm including it here for completeness.
                       (fail-acc
                        (if (implies (and (not mx.value) ready)
