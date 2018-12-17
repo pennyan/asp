@@ -26,11 +26,10 @@ def cex_str(m):  # m is a model for a counter-example
   nxt_v = x.gstate_sub_t.statev(nxt)
   time_line = "%20s %20s -> %20s" % ('time', z3numstr(prev_t), z3numstr(nxt_t))
   sigs = [ ( 'left-internal', x.lenv.left_sub_internal(m[x.el]) ),
-           ( 'go-full', x.asp_sub_stage.go_sub_full(m[x.a]) ),
-           ( 'empty', x.asp_sub_stage.empty(m[x.a]) ),
-           ( 'full-internal', x.asp_sub_stage.full_sub_internal(m[x.a]) ),
-           ( 'full', x.asp_sub_stage.full(m[x.a]) ),
-           ( 'go-empty', x.asp_sub_stage.go_sub_empty(m[x.a]) ),
+           ( 'ack-in', x.lenv.ack_sub_in(m[x.el]) ),
+           ( 'req-out', x.lenv.req_sub_out(m[x.el]) ),
+           ( 'ack-out', x.renv.ack_sub_out(m[x.er]) ),
+           ( 'req-in', x.renv.req_sub_in(m[x.er]) ),
            ( 'right-internal', x.renv.right_sub_internal(m[x.er]) ) ]
   v_lines = [ sig_line(foo, prev_v, nxt_v) for foo in sigs ]
   return [time_line] + v_lines
@@ -56,12 +55,11 @@ def acl2(m):
   nxt = x.gtrace.car(x.gtrace.cdr(tr))
   nxt_t = x.gstate_sub_t.statet(nxt)
   nxt_v = x.gstate_sub_t.statev(nxt)
-  sigs = [ x.asp_sub_stage.go_sub_full(m[x.a]),
-           x.asp_sub_stage.go_sub_empty(m[x.a]),
-	       x.asp_sub_stage.full(m[x.a]),
-	       x.asp_sub_stage.empty(m[x.a]),
-	       x.asp_sub_stage.full_sub_internal(m[x.a]),
-	       x.lenv.left_sub_internal(m[x.el]),
+  sigs = [ x.lenv.left_sub_internal(m[x.el]),
+           x.lenv.ack_sub_in(m[x.el]),
+	       x.lenv.req_sub_out(m[x.el]),
+           x.renv.ack_sub_out(m[x.er]),
+	       x.renv.req_sub_in(m[x.er]),
 	       x.renv.right_sub_internal(m[x.er])]
   flat_sigs = [ gen_sigs(foo) for foo in sigs ]
   lo = simplify(x.interval.lo(x.lenv.delta(m[x.el])))
