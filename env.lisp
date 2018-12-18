@@ -125,6 +125,12 @@
                    :time  (make-interval :lo (sig-value->time sig)
                                          :hi (sig-value->time sig))))
 
+(defun sig-macro-help (sigs)
+  (if (consp sigs)
+      `(sig-value-list-fix
+        (cons ,(car sigs) ,(sig-macro-help (cdr sigs))))
+    `(sig-value-list-fix nil)))
+
 (define sig-and-fun ((sigs sig-value-list-p))
   :returns (v booleanp)
   :measure (len sigs)
@@ -143,7 +149,7 @@
                              (sig-value-list-fix nil))))))
 
 (defmacro sig-and (&rest rst)
-  `(sig-and-fun (list ,@rst)))
+  (list 'sig-and-fun (sig-macro-help rst)))
 
 (define sig-max-time-help ((sigs sig-value-list-p) (currmax rationalp))
   :returns (v rationalp :hyp :guard)
@@ -174,7 +180,8 @@
                      (sig-value->time ,sig0)))
 
 (defmacro sig-max-time (sig0 &rest rst)
-  `(sig-max-time-fun (list ,@rst) (sig-value->time ,sig0)))
+  (list 'sig-max-time-fun (sig-macro-help rst) (list 'sig-value->time sig0)))
+;; `(sig-max-time-fun (list ,@rst) (sig-value->time ,sig0)))
 
 (define sig-check-times ((prev sig-value-p)
                          (next sig-value-p)
@@ -210,7 +217,9 @@
                                      (sig-target->value target))
                               (equal (sig-value->time next) tnext)
                               (<= (interval->lo (sig-target->time target))
-                                  tnext))))
+                                  tnext)
+                              (<  tnext
+                                  (interval->hi (sig-target->time target))))))
         nil)
        ((unless (implies (not (equal (sig-value->value next)
                                      (sig-target->value target)))
@@ -266,7 +275,8 @@
 
 (define lenv-step ((e lenv-p)
                    (prev gstate-t-p)
-                   (next gstate-t-p))
+                   (next gstate-t-p)
+                   (inf rationalp))
   :returns (ok booleanp)
   ;; Need a theorem that says if sigs-in-bool-table, then assoc-equal is not nil
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table lenv-sigs))))
@@ -285,12 +295,20 @@
        (gf-next (state-get gf next.statev))
        (li-prev (state-get li prev.statev))
        (li-next (state-get li next.statev))
-       (li-target (if (sig-and2 ack-in-prev gf-prev)
-                      (make-sig-target
-                       :value nil
-                       :time (interval-add (sig-max-time2 ack-in-prev gf-prev)
-                                           delta))
-                    (sig-target-from-signal li-prev)))
+       (li-target (cond ((and (sig-value->value ack-in-prev)
+                              (sig-value->value gf-prev)
+                              (sig-value->value li-prev))
+                         (make-sig-target
+                          :value nil
+                          :time (interval-add (sig-max-time2 ack-in-prev gf-prev)
+                                              delta)))
+                        ((not (sig-value->value li-prev))
+                         (make-sig-target
+                          :value t
+                          :time (make-interval
+                                 :lo (+ (sig-value->time li-prev) (* 2 (interval->lo delta)))
+                                 :hi inf)))
+                        (t (sig-target-from-signal li-prev))))
        ((unless (sig-check-transition li-prev li-next li-target prev.statet
                                       next.statet))
         nil)
@@ -310,7 +328,8 @@
 
 
 (define lenv-valid ((e lenv-p)
-                    (tr gtrace-p))
+                    (tr gtrace-p)
+                    (inf rationalp))
   :returns (ok booleanp)
   :measure (len (gtrace-fix tr))
   :hints (("Goal" :in-theory (enable gtrace-fix)))
@@ -320,12 +339,13 @@
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t)
        (second (car (gtrace-fix rest)))
-       ((unless (lenv-step e first second)) nil))
-    (lenv-valid e rest)))
+       ((unless (lenv-step e first second inf)) nil))
+    (lenv-valid e rest inf)))
 
 (define renv-step ((e renv-p)
                    (prev gstate-t-p)
-                   (next gstate-t-p))
+                   (next gstate-t-p)
+                   (inf rationalp))
   :returns (ok booleanp)
   ;; Need a theorem that says if sigs-in-bool-table, then assoc-equal is not nil
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table renv-sigs))))
@@ -344,18 +364,24 @@
        (ge-next (state-get ge next.statev))
        (ri-prev (state-get ri prev.statev))
        (ri-next (state-get ri next.statev))
-       (ri-target (if (sig-and2 req-in-prev ge-prev)
-                      (make-sig-target
-                       :value nil
-                       :time (interval-add (sig-max-time2 req-in-prev ge-prev)
-                                           delta))
-                    (sig-target-from-signal ri-prev)))
+       (ri-target (cond ((and (sig-and2 req-in-prev ge-prev) (not (sig-value->value ri-prev)))
+                         (make-sig-target
+                          :value t
+                          :time (interval-add (sig-max-time2 req-in-prev ge-prev)
+                                              delta)))
+                        ((sig-value->value ri-prev)
+                         (make-sig-target
+                          :value nil
+                          :time (make-interval
+                                 :lo (+ (sig-value->time ri-prev) (* 2 (interval->lo delta)))
+                                 :hi inf)))
+                        (t (sig-target-from-signal ri-prev))))
        ((unless (sig-check-transition ri-prev ri-next ri-target prev.statet
                                       next.statet))
         nil)
        (ge-target (if (equal (sig-value->value ge-prev)
                              (sig-value->value ri-prev))
-                      (make-sig-target :value (sig-value->value ri-prev)
+                      (make-sig-target :value (not (sig-value->value ri-prev))
                                        :time (interval-add (sig-max-time1 ri-prev)
                                                            delta))
                     (sig-target-from-signal ge-prev)))
@@ -369,7 +395,8 @@
   )
 
 (define renv-valid ((e renv-p)
-                    (tr gtrace-p))
+                    (tr gtrace-p)
+                    (inf rationalp))
   :returns (ok booleanp)
   :measure (len (gtrace-fix tr))
   :hints (("Goal" :in-theory (enable gtrace-fix)))
@@ -379,8 +406,8 @@
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t)
        (second (car (gtrace-fix rest)))
-       ((unless (renv-step e first second)) nil))
-    (renv-valid e rest)))
+       ((unless (renv-step e first second inf)) nil))
+    (renv-valid e rest inf)))
 
 ;; ------------------------------------------------------------
 ;;         define connection function of lenv to renv
@@ -487,28 +514,27 @@
                               (tcurr rationalp))
   :returns (failed-clauses integer-list-p)
   (with-asp-my-bench b
-                     ((fail-acc (integer-list-fix nil))
+                     ((myxt (max mx.time yx.time))
+                      (fail-acc (integer-list-fix nil))
                       ;; Constraints for mi:
-                      ;;   If (and mx yx (ready mi)),
+                      ;;   If (and mx yx ready),
                       ;;   then there is a pending action to set mi to idle
                       (fail-acc
                        (if (implies (and mx.value yx.value ready)
-                                    (< tcurr (+ (max mx.time yx.time)
-                                                delta.hi)))
+                                    (< tcurr (+ myxt delta.hi)))
                            fail-acc
                          (cons 1 (integer-list-fix fail-acc))))
-                      ;;   If (and mx yx (not (ready mi))),
+                      ;;   If (and mx yx (not ready)),
                       ;;   then the transition of mi to idle was enabled by the
-                      ;;   current value of yx.
-                      ;;   Thus mi.time >= yx.time + delta.lo
+                      ;;   current values of mx and yx.
+                      ;;   Thus myxt + delta.lo <= mi.time < myxt + delta.hi.
                       (fail-acc
                        (if (implies (and (not ready) mx.value yx.value)
-                                    (and (<= (+ yx.time delta.lo) mi.time)
-                                         (< mi.time (+ (max mx.time yx.time)
-                                                       delta.hi))))
+                                    (and (<= (+ myxt delta.lo) mi.time)
+                                         (<  mi.time (+ myxt delta.hi))))
                            fail-acc
                          (cons 2 (integer-list-fix fail-acc))))
-                      ;;   If (and mx (not (ready mi))),
+                      ;;   If (and mx (not ready)),
                       ;;   then the transition of mi to idle was enabled by the
                       ;;   current value of mx.
                       ;;   Thus mi.time >= mx.time + delta.lo
@@ -525,19 +551,18 @@
                       ;;   invariant, I'm including it here for completeness.
                       (fail-acc
                        (if (implies (and (not mx.value) ready)
-                                    (< (+ mx.time (- delta.hi) (* 2 delta.lo))
-                                       mi.time))
+                                    (<= (+ mx.time (- delta.hi) (* 2 delta.lo))
+                                        mi.time))
                            fail-acc
                          (cons 4 (integer-list-fix fail-acc))))
-                      ;;   Constraints for mx:  mx follows (ready mi).
-                      ;;   If (equal mx my),
+                      ;;   Constraints for mx:  mx follows ready.
+                      ;;   If (and mx mi),
                       ;;   then (in mx.time (+ mi.time delta))
                       ;;   otherwise (<= mx.time mi.time)
                       (fail-acc
                        (if (implies (equal mx.value ready)
-                                    (and (<= (+ yx.time delta.lo) mi.time)
-                                         (< mi.time (+ (max mx.time yx.time)
-                                                       delta.hi))))
+                                    (and (<= (+ mi.time delta.lo) mx.time)
+                                         (<  mx.time (+ mi.time delta.hi))))
                            fail-acc
                          (cons 5 (integer-list-fix fail-acc))))
                       (fail-acc
@@ -597,10 +622,16 @@
 ;;   ready again.  Hence the "next" in the function name.
 (define internal-next-ready-time ((b asp-my-bench-p))
   :returns(next-time interval-p)
-  (with-asp-my-bench
-   b
-   (((interval x) (interval-add (internal-idle-time b) delta)))
-   (change-interval x :hi (+ x.hi inf))))
+  (with-asp-my-bench b
+                     (((interval x) (interval-add (internal-idle-time b) delta)))
+                     (change-interval x :hi (+ x.hi inf))))
+
+;; internal-ready-time: time interval for the when my-internal is ready.
+(define internal-ready-time ((b asp-my-bench-p))
+  :returns(next-time interval-p)
+  (with-asp-my-bench b
+                     (((if ready) (make-interval :lo mi.time :hi mi.time)))
+                     (internal-next-ready-time b)))
 
 ;; external-idle-time: time interval for the next time that my-external is
 ;;   idle.
@@ -614,7 +645,10 @@
 (define external-next-ready-time ((b asp-my-bench-p))
   :returns(next-time interval-p)
   (with-asp-my-bench b nil
-                     (interval-add (internal-next-ready-time b) delta)))
+                     (interval-add (if mx.value
+                                       (internal-next-ready-time b)
+                                     (internal-ready-time b))
+                                   delta)))
 
 ;; interact-env-failed -- check that signal values and times are sane for
 ;;   the interactions between a lenv and renv.  This is where we track
@@ -638,13 +672,19 @@
                           ((lb (leftbench b))
                            (rb (rightbench b))
                            ((interval li_idle)  (internal-idle-time  lb))
+                           ((interval li_ready) (internal-next-ready-time  lb))
                            ((interval lx_idle)  (external-idle-time  lb))
                            ((interval lx_ready) (external-next-ready-time lb))
                            ((interval ri_idle)  (internal-idle-time  rb))
+                           ((interval ri_ready) (internal-next-ready-time  rb))
                            ((interval rx_idle)  (external-idle-time  rb))
                            ((interval rx_ready) (external-next-ready-time rb))
                            (l-ready li.value)
                            (r-ready (not ri.value))
+                           ;; (- (cw "req = ~q0, ack = ~q1, li_idle = ~q2, ri_idle = ~q3, lx_idle = ~q4, rx_idle = ~q5"
+                           ;;        req ack li_idle ri_idle lx_idle rx_idle))
+                           ;; (- (cw "li_ready = ~q0, ri_ready = ~q0, lx_ready = ~q0, rx_ready = ~q3"
+                           ;;        li_ready ri_ready lx_ready rx_ready))
                            (failed-acc (integer-list-fix nil))
                            ;; once triggered (i.e. (and req ack)), both
                            ;; interfaces must reset their internal state to
@@ -721,15 +761,16 @@
              (renv-p er)
              (env-connection el er)
              (gtrace-p tr)
-             (lenv-valid el tr)
-             (renv-valid er tr)
+             (rationalp inf)
+             (lenv-valid el tr inf)
+             (renv-valid er tr inf)
              (valid-interval (lenv->delta el))
              (valid-interval (renv->delta er))
              (equal (interval->lo (lenv->delta el))
                     8)
              (equal (interval->hi (lenv->delta el))
                     10)
-             ;; (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
+             (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
              (equal (interval->lo (lenv->delta el))
                     (interval->lo (renv->delta er)))
              (equal (interval->hi (lenv->delta el))
@@ -739,7 +780,7 @@
              (invariant el er
                         (gstate-t->statet (car (gtrace-fix tr)))
                         (gstate-t->statev (car (gtrace-fix tr)))
-                        1000)))
+                        inf)))
    :hints (("Goal"
             :smtlink
             (:fty (lenv renv interval gtrace sig-value gstate gstate-t
@@ -762,12 +803,14 @@
                                :level 2)
                               (lenv-valid
                                :formals ((e lenv-p)
-                                         (tr gtrace-p))
+                                         (tr gtrace-p)
+                                         (inf rationalp))
                                :returns ((ok booleanp))
                                :level 1)
                               (renv-valid
                                :formals ((e renv-p)
-                                         (tr gtrace-p))
+                                         (tr gtrace-p)
+                                         (inf rationalp))
                                :returns ((ok booleanp))
                                :level 1)
                               )
@@ -779,8 +822,9 @@
                 (renv-p er)
                 (env-connection el er)
                 (gtrace-p tr)
-                (lenv-valid el tr)
-                (renv-valid er tr)
+                (rationalp inf)
+                (lenv-valid el tr inf)
+                (renv-valid er tr inf)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
                 (equal (interval->lo (lenv->delta el))
@@ -797,12 +841,12 @@
                 (invariant el er
                            (gstate-t->statet (car (gtrace-fix tr)))
                            (gstate-t->statev (car (gtrace-fix tr)))
-                           1000))
+                           inf))
            (invariant el er
                       (gstate-t->statet (car (gtrace-fix (cdr (gtrace-fix tr)))))
                       (gstate-t->statev (car (gtrace-fix (cdr (gtrace-fix
                                                                tr)))))
-                      1000))
+                      inf))
   :hints (("Goal"
            :smtlink
            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
@@ -825,12 +869,14 @@
                               :level 2)
                              (lenv-valid
                               :formals ((e lenv-p)
-                                        (tr gtrace-p))
+                                        (tr gtrace-p)
+                                        (inf rationalp))
                               :returns ((ok booleanp))
                               :level 1)
                              (renv-valid
                               :formals ((e renv-p)
-                                        (tr gtrace-p))
+                                        (tr gtrace-p)
+                                        (inf rationalp))
                               :returns ((ok booleanp))
                               :level 1)
                              )
