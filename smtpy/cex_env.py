@@ -24,7 +24,7 @@ def cex_str(m):  # m is a model for a counter-example
   nxt = x.gtrace.car(x.gtrace.cdr(tr))
   nxt_t = x.gstate_sub_t.statet(nxt)
   nxt_v = x.gstate_sub_t.statev(nxt)
-  time_line = "%20s %20s -> %20s" % ('time', z3numstr(prev_t), z3numstr(nxt_t))
+  time_line = "%20s %20s -> %20s  (infinity = %s)" % ('time', z3numstr(prev_t), z3numstr(nxt_t), m[x.inf])
   sigs = [ ( 'left-internal', x.lenv.left_sub_internal(m[x.el]) ),
            ( 'req', x.lenv.req_sub_out(m[x.el]) ),
            ( 'ack', x.renv.ack_sub_out(m[x.er]) ),
@@ -45,7 +45,7 @@ def gen_sigvals(sig, curr):
   time = simplify(x.sig_sub_value.time(x.maybe_usc_sig_usc_sub_usc_value.val(curr[sig])))
   return (value, time)
 
-def acl2(m):
+def acl2(m, whichState=1):
   tr = m[x.tr]
   prev = x.gtrace.car(tr)
   prev_t = x.gstate_sub_t.statet(prev)
@@ -61,8 +61,12 @@ def acl2(m):
   lo = simplify(x.interval.lo(x.lenv.delta(m[x.el])))
   hi = simplify(x.interval.hi(x.lenv.delta(m[x.el])))
   delta = (lo, hi)
-  sig_curr = [ gen_sigvals(foo, nxt_v) for foo in sigs]
-  tcurr = simplify(nxt_t)
+  if(whichState==0):
+    sig_curr = [ gen_sigvals(foo, prev_v) for foo in sigs]
+    tcurr = simplify(prev_t)
+  else:
+    sig_curr = [ gen_sigvals(foo, nxt_v) for foo in sigs]
+    tcurr = simplify(nxt_t)
   return [flat_sigs, delta, sig_curr, tcurr]
 
 def translate(term):
@@ -72,7 +76,7 @@ def translate(term):
   return step3
 
   # fetch the counter-example from x and print it in a human readable form
-def main():
+def main(whichState=1):
   thm = x.theorem
   mySolver = Solver()
   mySolver.add(Not(thm))
@@ -85,8 +89,8 @@ def main():
     m = mySolver.model()
     lines = cex_str(m)
     [print(line) for line in lines]
-    term = acl2(m)
-    print("\nUse below form to test next state invariants:")
+    term = acl2(m, whichState)
+    print("\nUse the form below to test next state invariants:")
     print("(test-invariant-macro ")
     [print(translate(line)) for line in term]
     print(")")
