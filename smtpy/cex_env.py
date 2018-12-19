@@ -9,11 +9,11 @@ def sig_line(foo, prev_v, nxt_v):
   foo_prev = x.maybe_usc_sig_usc_sub_usc_value.val(prev_v[foo[1]])
   foo_nxt = x.maybe_usc_sig_usc_sub_usc_value.val(nxt_v[foo[1]])
   foo_line = ( "%20s %5s @ %12s -> %5s @ %12s" %
-	           ( foo[0],
-		         str(simplify(x.sig_sub_value.value(foo_prev))),
-		         z3numstr(x.sig_sub_value.time(foo_prev)),
-		         str(simplify(x.sig_sub_value.value(foo_nxt))),
-		         z3numstr(x.sig_sub_value.time(foo_nxt))))
+               ( foo[0],
+                 str(simplify(x.sig_sub_value.value(foo_prev))),
+                 z3numstr(x.sig_sub_value.time(foo_prev)),
+                 str(simplify(x.sig_sub_value.value(foo_nxt))),
+                 z3numstr(x.sig_sub_value.time(foo_nxt))))
   return(foo_line)
 
 def cex_str(m):  # m is a model for a counter-example
@@ -54,9 +54,9 @@ def acl2(m, whichState=1):
   nxt_t = x.gstate_sub_t.statet(nxt)
   nxt_v = x.gstate_sub_t.statev(nxt)
   sigs = [ x.lenv.left_sub_internal(m[x.el]),
-	       x.lenv.req_sub_out(m[x.el]),
+           x.lenv.req_sub_out(m[x.el]),
            x.renv.ack_sub_out(m[x.er]),
-	       x.renv.right_sub_internal(m[x.er])]
+           x.renv.right_sub_internal(m[x.er])]
   flat_sigs = [ gen_sigs(foo) for foo in sigs ]
   lo = simplify(x.interval.lo(x.lenv.delta(m[x.el])))
   hi = simplify(x.interval.hi(x.lenv.delta(m[x.el])))
@@ -68,6 +68,103 @@ def acl2(m, whichState=1):
     sig_curr = [ gen_sigvals(foo, nxt_v) for foo in sigs]
     tcurr = simplify(nxt_t)
   return [flat_sigs, delta, sig_curr, tcurr]
+
+def bool_to_acl2(b):
+  if(z3.simplify(b)):
+    return 't'
+  else:
+    return 'nil'
+
+def integer_to_acl2(i):
+  return z3.simplify(i).as_string()
+
+def rational_to_acl2(r):
+  r = z3.simplify(r)
+  if(r.sort() == z3.IntSort()):
+    return(integer_to_acl2(r))
+  elif((r.sort() == z3.RealSort()) and (r.decl().name() == 'Real')):
+    if(r.denominator_as_long() == 1):
+      return r.numerator().as_string()
+    else:
+      return('(/ ' + r.numerator().as_string() + ' ' + r.denominator().as_string() + ')')
+  else:
+    raise Exception('rational_to_acl2, badarg: ' + str(r))
+
+def interval_to_acl2(iv):
+  return('(make-interval' + ' :lo ' + rational_to_acl2(x.interval.lo(iv))
+                          + ' :hi ' + rational_to_acl2(x.interval.hi(iv)) + ')')
+
+def symbol_to_acl2(sym):
+  sym = z3.simplify(sym)
+  return ("'sym" + z3.simplify(x.Symbol_z3.z3Sym.ival(sym)).as_string())
+
+def sig_to_acl2(s):
+  mod = symbol_to_acl2(x.sig.module(s))
+  idx = integer_to_acl2(x.sig.index(s))
+  return('(make-sig :module ' + mod + ' :index ' + idx + ')')
+
+def sigPath_to_acl2(p):
+  if(z3.simplify(p == x.sig_sub_path.nil)):
+    return('nil')
+  else:
+    hd = sig_to_acl2(x.sig_sub_path.car(p))
+    tl = sigPath_to_acl2(x.sig_sub_path.cdr(p))
+    return('(cons ' + hd + ' ' + tl + ')')
+
+def sigValue_to_acl2(sv):
+  return('(make-sig-value' + ' :value ' + bool_to_acl2(x.sig_sub_value.value(sv))
+                           + ' :time ' +  rational_to_acl2(x.sig_sub_value.time(sv)) + ')')
+
+def maybeSigValue_to_acl2(msv):
+  if(z3.simplify(msv == x.maybe_usc_sig_usc_sub_usc_value.nil)):
+   return 'nil'
+  else:
+   return sigValue_to_acl2(x.maybe_usc_sig_usc_sub_usc_value.val(msv))
+
+#  m.eval(z3.Select(x.gstate_sub_t.statev(x.gtrace.car(m[x.tr])), a))
+def gstate_to_acl2(g, m, paths):
+  s = '(list'
+  for p in paths:
+    s = s + '(cons' + sigPath_to_acl2(p) + ' ' + maybeSigValue_to_acl2(m.eval(z3.Select(g, p))) + ')\n '
+  return s + ')'
+
+def gstate_t_to_acl2(gt, m, paths):
+  return('(make-gstate-t :statet ' + rational_to_acl2(x.gstate_sub_t.statet(gt))  + '\n  '
+                        ':statev ' + gstate_to_acl2(x.gstate_sub_t.statev(gt), m, paths) + ')\n')
+
+def gtrace_to_acl2(tr, m, paths):
+  if(z3.simplify(tr == x.gtrace.nil)):
+    return('nil')
+  else:
+    hd = gstate_t_to_acl2(x.gtrace.car(tr), m, paths)
+    tl = gtrace_to_acl2(x.gtrace.cdr(tr), m, paths)
+    return('(cons ' + hd + ' ' + tl + ')')
+
+def lenv_to_acl2(el):
+  return('(make-lenv ' + ':ack-in ' + sigPath_to_acl2(x.lenv.ack_sub_in(el)) + '\n'
+                       + ':req-out ' + sigPath_to_acl2(x.lenv.req_sub_out(el)) + '\n'
+                       + ':left-internal ' + sigPath_to_acl2(x.lenv.left_sub_internal(el)) + '\n'
+                       + ':delta ' + interval_to_acl2(x.lenv.delta(el)) + ')\n')
+
+def renv_to_acl2(el):
+  return('(make-renv ' + ':req-in ' + sigPath_to_acl2(x.renv.req_sub_in(el)) + '\n'
+                       + ':ack-out ' + sigPath_to_acl2(x.renv.ack_sub_out(el)) + '\n'
+                       + ':right-internal ' + sigPath_to_acl2(x.renv.right_sub_internal(el)) + '\n'
+                       + ':delta ' + interval_to_acl2(x.renv.delta(el)) + ')\n')
+
+
+def acl2m(m):
+  el = m[x.el]
+  er = m[x.er]
+  tr = m[x.tr]
+  sigs = [ x.lenv.left_sub_internal(el),
+           x.lenv.req_sub_out(el),
+           x.renv.ack_sub_out(er),
+           x.renv.right_sub_internal(er) ]
+  return("(defun cex ()\n" +
+          "(list" + "(cons 'lenv " + lenv_to_acl2(el) + ")     \n"
+                  + "(cons 'renv " + renv_to_acl2(er) + ")     \n"
+                  + "(cons 'tr " + gtrace_to_acl2(tr, m, sigs) + ")))\n")
 
 def translate(term):
   step1 = str(term).replace(",", "").replace("[", "(").replace("]", ")")
@@ -87,10 +184,14 @@ def main(whichState=1):
     print("z3 can't figure it out\n")
   else:
     m = mySolver.model()
+    # print cex
     lines = cex_str(m)
     [print(line) for line in lines]
     term = acl2(m, whichState)
+    # print ACL2
+    print(acl2m(m))
     print("\nUse the form below to test next state invariants:")
+    # print test
     print("(test-invariant-macro ")
     [print(translate(line)) for line in term]
     print(")")
