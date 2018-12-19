@@ -1,5 +1,5 @@
 import x
-from z3 import simplify, Solver, Not, sat, unsat, unknown, IntSort, RealSort, Select
+from z3 import IntSort, RealSort, Select, simplify, Solver, Not, sat, unsat, unknown
 import re
 
 def z3numstr(num):
@@ -31,6 +31,7 @@ def cex_str(m):  # m is a model for a counter-example
            ( 'right-internal', x.renv.right_sub_internal(m[x.er]) ) ]
   v_lines = [ sig_line(foo, prev_v, nxt_v) for foo in sigs ]
   return [time_line] + v_lines
+
 
 def gen_sigs(sig):
   if simplify(sig) == x.sig_sub_path.nil:
@@ -96,7 +97,7 @@ def interval_to_acl2(iv):
 def symbol_to_acl2(sym):
   sym = simplify(sym)
   return ("'sym" + simplify(x.Symbol_z3.z3Sym.ival(sym)).as_string())
-
+  
 def sig_to_acl2(s):
   mod = symbol_to_acl2(x.sig.module(s))
   idx = integer_to_acl2(x.sig.index(s))
@@ -120,11 +121,10 @@ def maybeSigValue_to_acl2(msv):
   else:
    return sigValue_to_acl2(x.maybe_usc_sig_usc_sub_usc_value.val(msv))
 
-#  m.eval(z3.Select(x.gstate_sub_t.statev(x.gtrace.car(m[x.tr])), a))
 def gstate_to_acl2(g, m, paths):
-  s = '(list '
+  s = '(list'
   for p in paths:
-    s = s + '(cons ' + sigPath_to_acl2(p) + ' ' + maybeSigValue_to_acl2(m.eval(Select(g, p))) + ')\n '
+    s = s + '(cons' + sigPath_to_acl2(p) + ' ' + maybeSigValue_to_acl2(m.eval(Select(g, p))) + ')\n '
   return s + ')'
 
 def gstate_t_to_acl2(gt, m, paths):
@@ -156,14 +156,16 @@ def acl2m(m):
   el = m[x.el]
   er = m[x.er]
   tr = m[x.tr]
+  inf = m[x.inf]
   sigs = [ x.lenv.left_sub_internal(el),
            x.lenv.req_sub_out(el),
            x.renv.ack_sub_out(er),
            x.renv.right_sub_internal(er) ]
   return("(defun cex ()\n" +
-          "(list " + "(cons 'lenv " + lenv_to_acl2(el) + ")     \n"
-                   + "(cons 'renv " + renv_to_acl2(er) + ")     \n"
-                   + "(cons 'tr " + gtrace_to_acl2(tr, m, sigs) + ")))\n")
+          "(list" + "(cons 'lenv " + lenv_to_acl2(el) + ")     \n"
+                  + "(cons 'renv " + renv_to_acl2(er) + ")     \n"
+                  + "(cons 'tr " + gtrace_to_acl2(tr, m, sigs) + ")\n"
+          + "(cons 'inf " + rational_to_acl2(inf) + ")))\n")
 
 def translate(term):
   step1 = str(term).replace(",", "").replace("[", "(").replace("]", ")")
@@ -183,15 +185,11 @@ def main(whichState=1):
     print("z3 can't figure it out\n")
   else:
     m = mySolver.model()
-    # print cex
     lines = cex_str(m)
     [print(line) for line in lines]
-    print("\nUse the form to access ACL2 cex:")
     term = acl2(m, whichState)
-    # print ACL2
+    print("\nUse the form below to test the next state invariants:")
     print(acl2m(m))
-    print("\nUse the form below to test next state invariants:")
-    # print test
-    print("(test-invariant-macro ")
-    [print(translate(line)) for line in term]
-    print(")")
+    # print("(test-invariant-macro ")
+    # [print(translate(line)) for line in term]
+    # print(")")
