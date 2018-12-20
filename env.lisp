@@ -59,42 +59,43 @@
        ((unless (sigs-in-bool-table (lenv-sigs e) prev.statev)) nil)
        ((unless (sigs-in-bool-table (lenv-sigs e) next.statev)) nil)
        (ack-in (lenv->ack-in e))
-       (gf (lenv->req-out e))
+       (req-out (lenv->req-out e))
        (li (lenv->left-internal e))
        (delta (lenv->delta e))
        (ack-in-prev (state-get ack-in prev.statev))
        (ack-in-next (state-get ack-in next.statev))
-       (gf-prev (state-get gf prev.statev))
-       (gf-next (state-get gf next.statev))
+       (req-out-prev (state-get req-out prev.statev))
+       (req-out-next (state-get req-out next.statev))
        (li-prev (state-get li prev.statev))
        (li-next (state-get li next.statev))
        (li-target (cond ((and (sig-value->value ack-in-prev)
-                              (sig-value->value gf-prev)
+                              (sig-value->value req-out-prev)
                               (sig-value->value li-prev))
                          (make-sig-target
                           :value nil
-                          :time (interval-add (sig-max-time2 ack-in-prev gf-prev)
+                          :time (interval-add (sig-max-time2 ack-in-prev req-out-prev)
                                               delta)))
                         ((not (sig-value->value li-prev))
                          (make-sig-target
                           :value t
                           :time (make-interval
-                                 :lo (+ (sig-value->time li-prev) (* 2 (interval->lo delta)))
+                                 :lo (+ (sig-value->time li-prev)
+                                        (* 2 (interval->lo delta)))
                                  :hi inf)))
                         (t (sig-target-from-signal li-prev))))
        (- (cw "li-target = ~q0" li-target))
-       ((unless
-            (prog2$
-             (cw "li-target = ~q0" li-target)
-             (sig-check-transition li-prev li-next li-target prev.statet next.statet)))
+       ((unless (sig-check-transition li-prev li-next li-target
+                                      prev.statet next.statet))
         nil)
-       (gf-target (if (equal (sig-value->value gf-prev)
-                             (sig-value->value li-prev))
-                      (sig-target-from-signal gf-prev)
-                    (make-sig-target :value (sig-value->value li-prev)
-                                     :time (interval-add (sig-max-time1 li-prev)
-                                                         delta))))
-       ((unless (sig-check-transition gf-prev gf-next gf-target prev.statet
+       (req-out-target (if (equal (sig-value->value req-out-prev)
+                                  (sig-value->value li-prev))
+                           (sig-target-from-signal req-out-prev)
+                         (make-sig-target :value (sig-value->value li-prev)
+                                          :time (interval-add (sig-max-time1 li-prev)
+                                                              delta))))
+       (- (cw "req-out-target = ~q0" req-out-target))
+       ((unless (sig-check-transition req-out-prev req-out-next
+                                      req-out-target prev.statet
                                       next.statet))
         nil)
        ((unless (sig-check-times ack-in-prev ack-in-next prev.statet
@@ -131,37 +132,40 @@
        ((unless (sigs-in-bool-table (renv-sigs e) prev.statev)) nil)
        ((unless (sigs-in-bool-table (renv-sigs e) next.statev)) nil)
        (req-in (renv->req-in e))
-       (ge (renv->ack-out e))
+       (ack-out (renv->ack-out e))
        (ri (renv->right-internal e))
        (delta (renv->delta e))
        (req-in-prev (state-get req-in prev.statev))
        (req-in-next (state-get req-in next.statev))
-       (ge-prev (state-get ge prev.statev))
-       (ge-next (state-get ge next.statev))
+       (ack-out-prev (state-get ack-out prev.statev))
+       (ack-out-next (state-get ack-out next.statev))
        (ri-prev (state-get ri prev.statev))
        (ri-next (state-get ri next.statev))
-       (ri-target (cond ((and (sig-and2 req-in-prev ge-prev) (not (sig-value->value ri-prev)))
+       (ri-target (cond ((and (sig-and2 req-in-prev ack-out-prev)
+                              (not (sig-value->value ri-prev)))
                          (make-sig-target
                           :value t
-                          :time (interval-add (sig-max-time2 req-in-prev ge-prev)
+                          :time (interval-add (sig-max-time2 req-in-prev ack-out-prev)
                                               delta)))
                         ((sig-value->value ri-prev)
                          (make-sig-target
                           :value nil
                           :time (make-interval
-                                 :lo (+ (sig-value->time ri-prev) (* 2 (interval->lo delta)))
+                                 :lo (+ (sig-value->time ri-prev)
+                                        (* 2 (interval->lo delta)))
                                  :hi inf)))
                         (t (sig-target-from-signal ri-prev))))
        ((unless (sig-check-transition ri-prev ri-next ri-target prev.statet
                                       next.statet))
         nil)
-       (ge-target (if (equal (sig-value->value ge-prev)
-                             (sig-value->value ri-prev))
-                      (make-sig-target :value (not (sig-value->value ri-prev))
-                                       :time (interval-add (sig-max-time1 ri-prev)
-                                                           delta))
-                    (sig-target-from-signal ge-prev)))
-       ((unless (sig-check-transition ge-prev ge-next ge-target prev.statet
+       (ack-out-target (if (equal (sig-value->value ack-out-prev)
+                                  (sig-value->value ri-prev))
+                           (make-sig-target :value (not (sig-value->value ri-prev))
+                                            :time (interval-add (sig-max-time1 ri-prev)
+                                                                delta))
+                         (sig-target-from-signal ack-out-prev)))
+       ((unless (sig-check-transition ack-out-prev ack-out-next
+                                      ack-out-target prev.statet
                                       next.statet))
         nil)
        ((unless (sig-check-times req-in-prev req-in-next prev.statet
@@ -544,11 +548,6 @@
              (valid-interval (lenv->delta el))
              (valid-interval (renv->delta er))
              (equal (interval->lo (lenv->delta el))
-                    8)
-             (equal (interval->hi (lenv->delta el))
-                    10)
-             (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
-             (equal (interval->lo (lenv->delta el))
                     (interval->lo (renv->delta er)))
              (equal (interval->hi (lenv->delta el))
                     (interval->hi (renv->delta er)))
@@ -585,7 +584,7 @@
                   ))))
  )
 
-(defthm invariant-thm
+(defthm invariant-step-thm
   (implies (and (lenv-p el)
                 (renv-p er)
                 (env-connection el er)
@@ -595,11 +594,6 @@
                 (renv-valid er tr inf)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
-                (equal (interval->lo (lenv->delta el))
-                       8)
-                (equal (interval->hi (lenv->delta el))
-                       10)
-                (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
                 (equal (interval->lo (lenv->delta el))
                        (interval->lo (renv->delta er)))
                 (equal (interval->hi (lenv->delta el))
@@ -643,3 +637,35 @@
                  :smt-dir "smtpy"
                  :evilp t
                  ))))
+
+(defthm invariant-trace-thm
+  (implies (and (lenv-p el)
+                (renv-p er)
+                (env-connection el er)
+                (gtrace-p tr)
+                (rationalp inf)
+                (lenv-valid el tr inf)
+                (renv-valid er tr inf)
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
+                (equal (interval->lo (lenv->delta el))
+                       (interval->lo (renv->delta er)))
+                (equal (interval->hi (lenv->delta el))
+                       (interval->hi (renv->delta er)))
+                (consp (gtrace-fix tr))
+                (consp (gtrace-fix (cdr (gtrace-fix tr))))
+                (invariant el er
+                           (gstate-t->statet (car (gtrace-fix tr)))
+                           (gstate-t->statev (car (gtrace-fix tr)))
+                           inf))
+           (invariant-trace el er tr inf))
+  :hints (("Goal"
+           :in-theory (e/d (invariant-trace)
+                           ())
+           :expand (invariant-trace el er tr inf)
+           :use ((:instance invariant-step-thm
+                            (el el)
+                            (er er)
+                            (tr tr)
+                            (inf inf)))
+           )))
