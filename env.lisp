@@ -142,11 +142,10 @@
     (sig-and-fun tl)))
 
 ;; Yan's temporary solution
-(defmacro sig-and2 (siga sigb)
-  `(sig-and-fun (cons ,siga
-                      (sig-value-list-fix
-                       (cons ,sigb
-                             (sig-value-list-fix nil))))))
+(define sig-and2 ((siga sig-value-p) (sigb sig-value-p))
+  :returns (p booleanp)
+  (and (sig-value->value siga)
+       (sig-value->value sigb)))
 
 (defmacro sig-and (&rest rst)
   (list 'sig-and-fun (sig-macro-help rst)))
@@ -168,16 +167,15 @@
     (make-interval :lo u :hi u)))
 
 ;; Yan's temporary solution
-(defmacro sig-max-time1 (sig0)
-  `(sig-max-time-fun (cons ,sig0 (sig-value-list-fix nil))
-                     (sig-value->time ,sig0)))
+(define sig-max-time1 ((sig0 sig-value-p))
+  :returns (vv interval-p)
+  (make-interval :lo (sig-value->time sig0)
+                 :hi (sig-value->time sig0)))
 
-(defmacro sig-max-time2 (sig0 sig1)
-  `(sig-max-time-fun (cons ,sig0
-                           (sig-value-list-fix
-                            (cons ,sig1
-                                  (sig-value-list-fix nil))))
-                     (sig-value->time ,sig0)))
+(define sig-max-time2 ((sig0 sig-value-p) (sig1 sig-value-p))
+  :returns (vv interval-p)
+  (b* ((v (max (sig-value->time sig0) (sig-value->time sig1))))
+    (make-interval :lo v :hi v)))
 
 (defmacro sig-max-time (sig0 &rest rst)
   (list 'sig-max-time-fun (sig-macro-help rst) (list 'sig-value->time sig0)))
@@ -309,8 +307,11 @@
                                  :lo (+ (sig-value->time li-prev) (* 2 (interval->lo delta)))
                                  :hi inf)))
                         (t (sig-target-from-signal li-prev))))
-       ((unless (sig-check-transition li-prev li-next li-target prev.statet
-                                      next.statet))
+       (- (cw "li-target = ~q0" li-target))
+       ((unless
+         (prog2$
+          (cw "li-target = ~q0" li-target)
+	  (sig-check-transition li-prev li-next li-target prev.statet next.statet)))
         nil)
        (gf-target (if (equal (sig-value->value gf-prev)
                              (sig-value->value li-prev))
@@ -738,7 +739,8 @@
                    :ri ri
                    :delta delta
                    :inf inf)))
-    (and (invariant-lenv testbench tcurr)
+    (and (< 0 inf)
+         (invariant-lenv testbench tcurr)
          (invariant-renv testbench tcurr)
          (interact-env testbench))))
 
@@ -770,7 +772,7 @@
                     8)
              (equal (interval->hi (lenv->delta el))
                     10)
-             (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
+             ;; (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
              (equal (interval->lo (lenv->delta el))
                     (interval->lo (renv->delta er)))
              (equal (interval->hi (lenv->delta el))
@@ -862,11 +864,11 @@
                               :formals ((sigs sig-value-list-p)
                                         (currmax rationalp))
                               :returns ((v rationalp))
-                              :level 2)
+                              :level 3)
                              (sig-and-fun
                               :formals ((sigs sig-value-list-p))
                               :returns ((v booleanp))
-                              :level 2)
+                              :level 3)
                              (lenv-valid
                               :formals ((e lenv-p)
                                         (tr gtrace-p)
