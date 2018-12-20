@@ -124,7 +124,7 @@ def maybeSigValue_to_acl2(msv):
 def gstate_to_acl2(g, m, paths):
   s = '(list'
   for p in paths:
-    s = s + '(cons' + sigPath_to_acl2(p) + ' ' + maybeSigValue_to_acl2(m.eval(Select(g, p))) + ')\n '
+    s = s + '(cons ' + sigPath_to_acl2(p) + ' ' + maybeSigValue_to_acl2(m.eval(Select(g, p))) + ')\n '
   return s + ')'
 
 def gstate_t_to_acl2(gt, m, paths):
