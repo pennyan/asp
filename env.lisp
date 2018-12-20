@@ -309,9 +309,9 @@
                         (t (sig-target-from-signal li-prev))))
        (- (cw "li-target = ~q0" li-target))
        ((unless
-         (prog2$
-          (cw "li-target = ~q0" li-target)
-	  (sig-check-transition li-prev li-next li-target prev.statet next.statet)))
+            (prog2$
+             (cw "li-target = ~q0" li-target)
+             (sig-check-transition li-prev li-next li-target prev.statet next.statet)))
         nil)
        (gf-target (if (equal (sig-value->value gf-prev)
                              (sig-value->value li-prev))
@@ -772,7 +772,7 @@
                     8)
              (equal (interval->hi (lenv->delta el))
                     10)
-             ;; (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
+             (equal (gstate-t->statet (car (gtrace-fix tr))) 8)
              (equal (interval->lo (lenv->delta el))
                     (interval->lo (renv->delta er)))
              (equal (interval->hi (lenv->delta el))
@@ -794,15 +794,6 @@
                                          (st gstate-p))
                                :returns ((ok booleanp))
                                :level 3)
-                              (sig-max-time-help
-                               :formals ((sigs sig-value-list-p)
-                                         (currmax rationalp))
-                               :returns ((v rationalp))
-                               :level 2)
-                              (sig-and-fun
-                               :formals ((sigs sig-value-list-p))
-                               :returns ((v booleanp))
-                               :level 2)
                               (lenv-valid
                                :formals ((e lenv-p)
                                          (tr gtrace-p)
@@ -859,15 +850,6 @@
                               :formals ((sigs sig-path-listp)
                                         (st gstate-p))
                               :returns ((ok booleanp))
-                              :level 3)
-                             (sig-max-time-help
-                              :formals ((sigs sig-value-list-p)
-                                        (currmax rationalp))
-                              :returns ((v rationalp))
-                              :level 3)
-                             (sig-and-fun
-                              :formals ((sigs sig-value-list-p))
-                              :returns ((v booleanp))
                               :level 3)
                              (lenv-valid
                               :formals ((e lenv-p)
