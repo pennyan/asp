@@ -1889,14 +1889,6 @@
                   ))))
  )
 
-(set-evisc-tuple (evisc-tuple 3   ; print-level
-                              4   ; print-length
-                              nil ; alist
-                              nil ; hiding-cars
-                              )
-                 :iprint :same ; better yet, T
-                 :sites :all)
-
 (defthm invariant-thm
   (implies (and (asp-stage-p a)
                 (lenv-p el)
@@ -1967,4 +1959,3 @@
 	               :smt-dir "smtpy"
                  :evilp t
                  ))))
-
