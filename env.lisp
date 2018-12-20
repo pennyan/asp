@@ -590,8 +590,12 @@
                 (env-connection el er)
                 (gtrace-p tr)
                 (rationalp inf)
-                (lenv-valid el tr inf)
-                (renv-valid er tr inf)
+                (lenv-step el (car (gtrace-fix tr))
+                           (car (gtrace-fix (cdr (gtrace-fix tr))))
+                           inf)
+                (renv-step er (car (gtrace-fix tr))
+                           (car (gtrace-fix (cdr (gtrace-fix tr))))
+                           inf)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
                 (equal (interval->lo (lenv->delta el))
@@ -633,10 +637,11 @@
                               :returns ((ok booleanp))
                               :level 1)
                              )
-                 :smt-fname "inv-theorem.py"
+                 :smt-fname "x.py"
                  :smt-dir "smtpy"
                  :evilp t
                  ))))
+
 
 (defthm invariant-trace-thm
   (implies (and (lenv-p el)
@@ -662,10 +667,13 @@
   :hints (("Goal"
            :in-theory (e/d (invariant-trace)
                            ())
-           :expand (invariant-trace el er tr inf)
+           :expand ((lenv-valid el tr inf)
+                    (renv-valid er tr inf)
+                    (invariant-trace el er tr inf)))
+          ("Subgoal *1/1'"
            :use ((:instance invariant-step-thm
                             (el el)
                             (er er)
                             (tr tr)
-                            (inf inf)))
-           )))
+                            (inf inf))))
+          ))
