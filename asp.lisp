@@ -24,9 +24,7 @@
    (full sig-path-p)
    (empty sig-path-p)
    (full-internal sig-path-p)
-
-   (delta interval-p)
-   ))
+   (delta interval-p)))
 
 ;; =====================================================
 ;; targets and trigger time
@@ -274,105 +272,85 @@
                 (consp (assoc-equal k s)))
            (sig-value-p (cdr (assoc-equal k s)))))
 
+(set-ignore-ok t)
 (define asp-step ((a asp-stage-p)
-                  (tprev rationalp) (prev gstate-p)
-                  (tnext rationalp) (next gstate-p))
+                  (prev gstate-t-p)
+                  (next gstate-t-p))
   :returns (ok booleanp)
   ;; Need a theorem that says if sigs-in-bool-table, then assoc-equal is not nil
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table asp-sigs))))
   (b* ((a (asp-stage-fix a))
-       (prev (gstate-fix prev))
-       (next (gstate-fix next))
-       ((unless (sigs-in-bool-table (asp-sigs a) prev)) nil)
-       ((unless (sigs-in-bool-table (asp-sigs a) next)) nil)
+       ((gstate-t prev) (gstate-t-fix prev))
+       ((gstate-t next) (gstate-t-fix next))
+       ((unless (sigs-in-bool-table (asp-sigs a) prev.statev)) nil)
+       ((unless (sigs-in-bool-table (asp-sigs a) next.statev)) nil)
        (go-full (asp-stage->go-full a))
        (go-empty (asp-stage->go-empty a))
        (full (asp-stage->full a))
        (empty (asp-stage->empty a))
-       (full-internal (asp-stage->full-internal a))
+       (fi (asp-stage->full-internal a))
        (delta (asp-stage->delta a))
-       (go-full-prev (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix prev)))))
-       (go-full-next (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix next)))))
-       (go-empty-prev (cdr (smt::magic-fix
-                            'sig-path_sig-value
-                            (assoc-equal go-empty (gstate-fix prev)))))
-       (go-empty-next (cdr (smt::magic-fix
-                            'sig-path_sig-value
-                            (assoc-equal go-empty (gstate-fix next)))))
-       (full-prev (cdr (smt::magic-fix
-                        'sig-path_sig-value
-                        (assoc-equal full (gstate-fix prev)))))
-       (full-next (cdr (smt::magic-fix
-                        'sig-path_sig-value
-                        (assoc-equal full (gstate-fix next)))))
-       (empty-prev (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix prev)))))
-       (empty-next (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix next)))))
-       (full-internal-prev (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal full-internal
-                                              (gstate-fix prev)))))
-       (full-internal-next (cdr (smt::magic-fix
-                                 'sig-path_sig-value
-                                 (assoc-equal full-internal
-                                              (gstate-fix next)))))
-       ;; basic timing constraints
-       ((unless (and (nondecreasing-time tprev tnext)
-                     (sig-time-<=-curr-time->=0 empty-prev tprev)
-                     (sig-time-<=-curr-time->=0 empty-next tnext)
-                     (sig-time-<=-curr-time->=0 full-prev tprev)
-                     (sig-time-<=-curr-time->=0 full-next tnext)
-                     (sig-time-<=-curr-time->=0 go-empty-prev tprev)
-                     (sig-time-<=-curr-time->=0 go-empty-next tnext)
-                     (sig-time-<=-curr-time->=0 go-full-prev tprev)
-                     (sig-time-<=-curr-time->=0 go-full-next tnext)
-                     (sig-time-<=-curr-time->=0 full-internal-prev tprev)
-                     (sig-time-<=-curr-time->=0 full-internal-next tnext)
-                     (time-consistent-when-signal-doesnt-change empty-prev empty-next)
-                     (time-consistent-when-signal-doesnt-change full-prev full-next)
-                     (time-consistent-when-signal-doesnt-change go-empty-prev go-empty-next)
-                     (time-consistent-when-signal-doesnt-change go-full-prev
-                                                                go-full-next)
-                     (time-consistent-when-signal-doesnt-change full-internal-prev
-                                                                full-internal-next)
-                     (time-set-when-signal-change empty-prev empty-next tnext)
-                     (time-set-when-signal-change full-prev full-next tnext)
-                     (time-set-when-signal-change go-empty-prev go-empty-next tnext)
-                     (time-set-when-signal-change go-full-prev go-full-next tnext)
-                     (time-set-when-signal-change full-internal-prev full-internal-next
-                                                  tnext)
-                     ))
-        nil)
+       (go-full-prev (state-get go-full prev.statev))
+       (go-full-next (state-get go-full next.statev))
+       (go-empty-prev (state-get go-empty prev.statev))
+       (go-empty-next (state-get go-empty next.statev))
+       (full-prev (state-get full prev.statev))
+       (full-next (state-get full next.statev))
+       (empty-prev (state-get empty prev.statev))
+       (empty-next (state-get empty next.statev))
+       (fi-prev (state-get fi prev.statev))
+       (fi-next (state-get fi next.statev))
        ;; full-internal specific constraints
        (fi-target
-        (full-internal-target full-prev empty-prev go-full-prev
-                              go-empty-prev full-internal-prev))
-       (fi-time
-        (full-internal-trigger-time full-prev empty-prev go-full-prev
-                                    go-empty-prev full-internal-prev))
-       ((unless (signal-transition-constraints full-internal-prev tnext
-                                               full-internal-next fi-target
-                                               fi-time delta))
+        (cond ((and (sig-value->value go-full-prev)
+                    (sig-value->value empty-prev)
+                    (not (sig-value->value fi-prev)))
+               (make-sig-target
+                :value t
+                :time (interval-add (sig-max-time2 go-full-prev empty-prev)
+                                    delta)))
+              ((and (sig-value->value go-empty-prev)
+                    (sig-value->value full-prev)
+                    (sig-value->value fi-prev))
+               (make-sig-target
+                :value nil
+                :time (interval-add (sig-max-time2 go-empty-prev full-prev)
+                                    delta)))
+              (t (sig-target-from-signal fi-prev))
+              ))
+       ((unless (sig-check-transition fi-prev fi-next fi-target
+                                      prev.statet next.statet))
         nil)
        ;; full specific constraints
-       (f-target (full-target full-prev full-internal-prev))
-       (f-time (full-trigger-time full-prev full-internal-prev))
-       ((unless (signal-transition-constraints full-prev tnext full-next
-                                               f-target f-time delta))
+       (f-target
+        (if (equal (sig-value->value full-prev)
+                   (sig-value->value fi-prev))
+            (sig-target-from-signal full-prev)
+          (make-sig-target :value (sig-value->value fi-prev)
+                           :time (interval-add (sig-max-time1 fi-prev)
+                                               delta))))
+       ((unless (sig-check-transition full-prev full-next f-target
+                                      prev.statet next.statet))
         nil)
        ;; empty specific constraints
-       (e-target (empty-target empty-prev full-internal-prev))
-       (e-time (empty-trigger-time empty-prev full-internal-prev))
-       ((unless (signal-transition-constraints empty-prev tnext empty-next
-                                               e-target e-time delta))
-        nil))
+       (e-target
+        (if (equal (sig-value->value empty-prev)
+                   (sig-value->value fi-prev))
+            (make-sig-target :value (not (sig-value->value fi-prev))
+                             :time (interval-add (sig-max-time1 fi-prev)
+                                                 delta))
+          (sig-target-from-signal empty-prev)))
+       ((unless (sig-check-transition empty-prev empty-next e-target
+                                      prev.statet next.statet))
+        nil)
+       ;; go-full and go-empty
+       ((unless (sig-check-times go-full-prev go-full-next prev.statet
+                                 next.statet))
+        nil)
+       ((unless (sig-check-times go-empty-prev go-empty-next prev.statet
+                                 next.statet))
+        nil)
+       )
     t))
 
 (define asp-valid ((a asp-stage-p)
@@ -381,17 +359,13 @@
   :measure (len (gtrace-fix tr))
   :hints (("Goal" :in-theory (enable gtrace-fix)))
   (b* ((a (asp-stage-fix a))
-       ((unless (consp (gtrace-fix (cdr (gtrace-fix tr))))) t)
+       ((unless (consp (gtrace-fix tr))) t)
        (first (car (gtrace-fix tr)))
        (rest (cdr (gtrace-fix tr)))
-       (second (car (gtrace-fix rest)))
-       ((unless (asp-step a
-                          (gstate-t->statet first)
-                          (gstate-t->statev first)
-                          (gstate-t->statet second)
-                          (gstate-t->statev second)))
-        nil))
-    (asp-valid a rest)))
+       ((unless (consp (gtrace-fix rest))) t)
+       (second (car (gtrace-fix rest))))
+    (and (asp-step a first second)
+         (asp-valid a rest))))
 
 ;; -----------------------------------------------------
 ;; target and trigger-time functions for the environment
@@ -1656,6 +1630,7 @@
              (equal (interval->hi (asp-stage->delta a))
                     (interval->hi (renv->delta er)))
              (consp (gtrace-fix tr))
+             (consp (gtrace-fix (cdr (gtrace-fix tr))))
              (invariant a el er
                         (gstate-t->statet (car (gtrace-fix tr)))
                         (gstate-t->statev (car (gtrace-fix tr)))
@@ -1664,7 +1639,8 @@
             :smtlink
             (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
                              sig-path-list sig-path sig maybe-integer
-                             maybe-rational target-tuple integer-list asp-stage-testbench)
+                             maybe-rational target-tuple integer-list
+                             asp-stage-testbench sig-target)
                   :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
                                                             (st gstate-p))
                                                   :returns ((ok booleanp))
@@ -1729,7 +1705,8 @@
            :smtlink
            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
                             sig-path-list sig-path sig maybe-integer
-                            maybe-rational target-tuple integer-list asp-stage-testbench)
+                            maybe-rational target-tuple integer-list
+                            asp-stage-testbench sig-target)
 	               :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
 						                                               (st gstate-p))
 					                                       :returns ((ok booleanp))
