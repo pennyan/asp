@@ -161,6 +161,7 @@
                                         (* 2 (interval->lo delta)))
                                  :hi inf)))
                         (t (sig-target-from-signal ri-prev))))
+       (- (cw "ri-target = ~q0" ri-target))
        ((unless (sig-check-transition ri-prev ri-next ri-target prev.statet
                                       next.statet))
         nil)
@@ -170,6 +171,7 @@
                                             :time (interval-add (sig-max-time1 ri-prev)
                                                                 delta))
                          (sig-target-from-signal ack-out-prev)))
+       (- (cw "ack-out-target = ~q0" ack-out-target))
        ((unless (sig-check-transition ack-out-prev ack-out-next
                                       ack-out-target prev.statet
                                       next.statet))
@@ -604,6 +606,8 @@
                            inf)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
+                (> (* 2 (interval->lo (lenv->delta el)))
+                   (interval->hi (lenv->delta el)))
                 (equal (interval->lo (lenv->delta el))
                        (interval->lo (renv->delta er)))
                 (equal (interval->hi (lenv->delta el))
