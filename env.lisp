@@ -1,9 +1,15 @@
 (in-package "ASP")
 
-(include-book "util")
-(include-book "basics")
+(include-book "std/util/define" :dir :system)
+(include-book "tools/bstar" :dir :system)
+(include-book "centaur/fty/top" :dir :system) ; for defalist, etc.
+(include-book "misc/eval" :dir :system)
+(include-book "projects/smtlink/top" :dir :system)
 (value-triple (tshell-ensure))
 (add-default-hints '((SMT::SMT-computed-hint clause)))
+
+(include-book "util")
+(include-book "basics")
 
 ;; -------------------------------------------------
 ;;             environment

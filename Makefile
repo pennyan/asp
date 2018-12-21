@@ -4,15 +4,20 @@
 
 .PHONY: all clean
 
-ACL2 := /Users/penny/bin/acl2
-ACL2_BOOKS := /Users/penny/Software/acl2/books
-BUILD_DIR := /Users/penny/Software/acl2/books/build
+ACL2 := /Users/penny/Software/acl2/saved_acl2
+ACL2_BOOKS := $(dir ${ACL2})books
+BUILD_DIR := ${ACL2_BOOKS}/build
 
-JOBS ?= 1
+JOBS ?= 3
 
 all: top
 
-top:
+top: env asp
+
+env:
+	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) env
+
+asp:
 	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) asp
 
 clean:
