@@ -40,8 +40,10 @@
 
   (define rational-to-string ((r rationalp) (prec natp))
     :returns (s stringp)
+    :guard-debug t
     (b* ((abs-r (abs r))
-	       (int-part (nonnegative-integer-quotient (numerator abs-r) (denominator abs-r)))
+	       (int-part (nonnegative-integer-quotient (numerator abs-r)
+                                                 (denominator abs-r)))
 	       (si (int-to-char-list int-part nil))
 	       (si (cond ((< r 0) (cons #\- si))
                    ((> r 0) si)
@@ -49,8 +51,21 @@
 	       (frac-part (- abs-r int-part))
 	       (sf (if (<= frac-part 0)
 		             nil
-	             (cons #\. (acl2::rev (frac-to-rev-char-list frac-part nil prec))))))
-      (coerce (append si sf) 'string))))
+	             (cons #\. (acl2::rev
+                          (frac-to-rev-char-list frac-part nil prec)))))
+         (rem-num (rem (numerator abs-r) 524287))
+         (rem-dem (rem (denominator abs-r) 524287))
+         (hash (if (and (>= rem-num 0)
+                        (>= rem-dem 0))
+                   `(,@(int-to-char-list rem-num nil)
+                     #\/
+                     ,@(int-to-char-list rem-dem nil))
+                 nil)))
+      (coerce (append si sf
+                      '(#\[ #\H #\A #\S #\H #\: )
+                      hash
+                      '(#\]))
+              'string))))
 
 (define sig-value-to-str ((sv sig-value-p) (prec natp))
   :returns (s stringp)
@@ -99,7 +114,7 @@
        (- (show-sig req-path prevv "req"))
        (- (show-sig ack-path prevv "ack"))
        (- (show-sig ri-path prevv "right-internal"))
-       (- (cw "next: tnext = ~s0~%(inf = ~s1, delta = [~s2, ~s3))~%"
+       (- (cw "next: tnext = ~s0~%(inf = ~s1,~% delta = [~s2, ~s3))~%"
               (rational-to-string tnext 6)
               (rational-to-string inf 6)
               (rational-to-string (interval->lo delta) 6)
