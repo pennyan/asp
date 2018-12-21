@@ -411,8 +411,9 @@
 (define internal-next-ready-time ((b asp-my-bench-p))
   :returns(next-time interval-p)
   (with-asp-my-bench b
-                     (((interval x) (interval-add (internal-idle-time b) delta)))
-                     (change-interval x :hi (+ x.hi inf))))
+                     (((interval it) (internal-idle-time b)))
+                     (make-interval :lo (+ it.lo (* 2 delta.lo))
+                                    :hi (+ it.hi (* 2 delta.hi) inf))))
 
 ;; internal-ready-time: time interval for the when my-internal is ready.
 (define internal-ready-time ((b asp-my-bench-p))
@@ -425,7 +426,8 @@
 ;;   idle.
 (define external-idle-time ((b asp-my-bench-p))
   :returns(next-time interval-p)
-  (with-asp-my-bench b nil
+  (with-asp-my-bench b
+                     (((unless mx.value) (make-interval :lo mx.time :hi mx.time)))
                      (interval-add (internal-idle-time b) delta)))
 
 ;; external-next-ready-time: time interval for the *next* time that
@@ -663,6 +665,8 @@
                 (renv-valid er tr inf)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
+                (> (* 2 (interval->lo (lenv->delta el)))
+                   (interval->hi (lenv->delta el)))
                 (equal (interval->lo (lenv->delta el))
                        (interval->lo (renv->delta er)))
                 (equal (interval->hi (lenv->delta el))
