@@ -11,93 +11,12 @@
 (add-default-hints '((SMT::SMT-computed-hint clause)))
 
 (include-book "util")
-
-;; -------------------------------------
-;;       need an fty compatible integer-list
-(deflist integer-list
-  :elt-type integerp
-  :true-listp t)
-
-;; -------------------------------------
-;;       signal paths
-(defprod sig
-  ((module symbolp)
-   (index integerp)))
-
-(deflist sig-path
-  :elt-type sig-p
-  :true-listp t)
-
-(deflist sig-path-list
-  :elt-type sig-path
-  :pred sig-path-listp
-  :true-listp t)
-
-;; -------------------------------------
-;;       value type
-
-;; -------------------------------------
-;;        trace
-(defprod sig-value
-  ((value booleanp)
-   (time rationalp)))
-
-(defalist gstate
-  :key-type sig-path-p
-  :val-type sig-value-p
-  :true-listp t)
-
-(defprod gstate-t
-  ((statet rationalp)
-   (statev gstate-p)))
-
-(deflist gtrace
-  :elt-type gstate-t-p
-  :true-listp t)
-
-(define sigs-in-bool-table ((sigs sig-path-listp)
-                            (st gstate-p))
-  :returns (ok booleanp)
-  :measure (len sigs)
-  :hints (("Goal" :in-theory (enable sig-path-list-fix)))
-  (b* ((sigs (sig-path-list-fix sigs))
-       (st (gstate-fix st))
-       ((unless (consp (sig-path-list-fix sigs))) t)
-       (first (car (sig-path-list-fix sigs)))
-       (rest (cdr (sig-path-list-fix sigs)))
-       (first-v (assoc-equal first (gstate-fix st)))
-       ((unless (consp (smt::magic-fix 'sig-path_sig-value first-v)))
-        nil))
-    (sigs-in-bool-table rest st))
-  )
-
-(define sigs-in-bool-trace ((sigs sig-path-listp)
-                            (tr gtrace-p))
-  :returns (ok booleanp)
-  :measure (len (gtrace-fix tr))
-  :hints (("Goal" :in-theory (enable gtrace-fix)))
-  (b* ((sigs (sig-path-list-fix sigs))
-       (tr (gtrace-fix tr))
-       ((unless (consp (sig-path-list-fix sigs))) t)
-       ((unless (consp (gtrace-fix tr))) t)
-       (first (car (gtrace-fix tr)))
-       (rest (cdr (gtrace-fix tr)))
-       ((unless (sigs-in-bool-table sigs (gstate-t->statev first))) nil))
-    (sigs-in-bool-trace sigs rest)))
+(include-book "basics")
 
 ;; --------------------------------------
 ;; stage
+(defoption maybe-integer integerp)
 (defoption maybe-rational rationalp)
-
-(defprod interval
-  ((lo rationalp)
-   (hi rationalp)))
-
-(define valid-interval ((i interval-p))
-  :returns (ok booleanp)
-  (b* ((i (interval-fix i)))
-    (and (> (interval->lo i) 0)
-         (< (interval->lo i) (interval->hi i)))))
 
 (defprod asp-stage
   ((go-full sig-path-p)
@@ -874,109 +793,8 @@
        )
   )
 
-;; -----------------------------------------------------------------
-;;       define how we count symbols in the fifo
-(defoption maybe-integer integerp)
-
-(define sym-count ((a asp-stage-p) (curr gstate-p))
-  :returns (count maybe-integer-p)
-  :guard-hints (("Goal" :in-theory (enable sigs-in-bool-table asp-sigs)))
-  (b* ((a (asp-stage-fix a))
-       (curr (gstate-fix curr))
-       ((unless (sigs-in-bool-table (asp-sigs a) curr))
-        (maybe-integer-fix nil))
-       (go-full (asp-stage->go-full a))
-       (go-empty (asp-stage->go-empty a))
-       (full (asp-stage->full a))
-       (empty (asp-stage->empty a))
-       (go-full-curr (cdr (smt::magic-fix
-                           'sig-path_sig-value
-                           (assoc-equal go-full (gstate-fix curr)))))
-       (go-empty-curr (cdr (smt::magic-fix
-                            'sig-path_sig-value
-                            (assoc-equal go-empty (gstate-fix curr)))))
-       (full-curr (cdr (smt::magic-fix
-                        'sig-path_sig-value
-                        (assoc-equal full (gstate-fix curr)))))
-       (empty-curr (cdr (smt::magic-fix
-                         'sig-path_sig-value
-                         (assoc-equal empty (gstate-fix curr))))))
-    (cond ((and (not (and (sig-value->value go-full-curr)
-                          (sig-value->value empty-curr)))
-                (not (and (sig-value->value go-empty-curr)
-                          (sig-value->value full-curr))))
-           (maybe-integer-some 1))
-          ((and (sig-value->value go-full-curr)
-                (sig-value->value empty-curr))
-           (maybe-integer-some 1))
-          ((and (sig-value->value go-empty-curr)
-                (sig-value->value full-curr))
-           (maybe-integer-some 0))
-          (t
-           (maybe-integer-fix nil)))))
-
-;; ========================================================================================
-;;     a test for sort mismatch and stuff
-
-(std::must-fail
- (defthm simple-yan
-   (implies (and (asp-stage-p a)
-                 (lenv-p el)
-                 (renv-p er)
-                 (asp-connection a el er)
-                 (gtrace-p tr)
-                 (lenv-valid el tr)
-                 (renv-valid er tr)
-                 (asp-valid a tr)
-                 (valid-interval (asp-stage->delta a))
-                 (valid-interval (lenv->delta el))
-                 (valid-interval (renv->delta er))
-                 (consp (gtrace-fix tr))
-                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                 (equal (sym-count a (gstate-t->statev (car (gtrace-fix tr))))
-                        (maybe-integer-some 1)))
-            (equal (sym-count a
-                              (gstate-t->statev
-                               (car (gtrace-fix (cdr (gtrace-fix tr))))))
-                   (maybe-integer-some 1)))
-   :hints (("Goal"
-            :smtlink
-            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
-                             sig-path-list sig-path sig maybe-integer
-                             maybe-rational target-tuple)
-                  :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
-                                                            (st gstate-p))
-                                                  :returns ((ok booleanp))
-                                                  :level 5)
-                              (sigs-in-bool-trace :formals ((sigs sig-path-listp)
-                                                            (tr gstate-p))
-                                                  :returns ((ok booleanp))
-                                                  :level 2)
-                              (lenv-valid :formals ((e lenv-p)
-                                                    (tr gtrace-p))
-                                          :returns ((ok booleanp))
-                                          :level 1)
-                              (renv-valid :formals ((e renv-p)
-                                                    (tr gtrace-p))
-                                          :returns ((ok booleanp))
-                                          :level 1)
-                              (asp-valid :formals ((a asp-stage-p)
-                                                   (tr gtrace-p))
-                                         :returns ((ok booleanp))
-                                         :level 1)
-                              )
-                  ))))
- )
-
-
 ;; ========================================================================================
 ;;    The invariant
-
-;; (define tag-b ((b booleanp) (n integerp))
-;;   :returns (res booleanp)
-;;   (declare (ignore n))
-;;   (if (equal b t) t
-;;     nil))
 
 (defprod asp-stage-testbench
   ((go-full sig-value-p)
@@ -1338,24 +1156,6 @@
          (integer-list-fix nil)))
 
 ;; ----------------------------------------------------------
-
-(define interval-add ((itv1 interval-p) (itv2 interval-p))
-  :returns (itv interval-p)
-  (b* ((itv1 (interval-fix itv1))
-       (itv2 (interval-fix itv2)))
-    (make-interval :lo (+ (interval->lo itv1)
-                          (interval->lo itv2))
-                   :hi (+ (interval->hi itv1)
-                          (interval->hi itv2)))))
-
-(define interval-max ((itv1 interval-p) (itv2 interval-p))
-  :returns (imax interval-p)
-  (b* ((itv1 (interval-fix itv1))
-       (itv2 (interval-fix itv2)))
-    (make-interval :lo (max (interval->lo itv1)
-                            (interval->lo itv2))
-                   :hi (max (interval->hi itv1)
-                            (interval->hi itv2)))))
 
 (set-ignore-ok t)
 
