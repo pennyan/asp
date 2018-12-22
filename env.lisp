@@ -504,11 +504,10 @@
 
 ;; ------------------------------------------------------------------------------
 
-(define invariant ((left lenv-p) (right renv-p)
-                   (tcurr rationalp) (curr gstate-p)
-                   (inf rationalp))
+(define invariant-env ((left lenv-p) (right renv-p)
+                       (tcurr rationalp) (curr gstate-p)
+                       (inf rationalp))
   :returns (ok booleanp)
-  :guard-debug t
   :guard-hints (("Goal" :in-theory (enable sigs-in-bool-table
                                            lenv-sigs renv-sigs)))
   (b* (((lenv left) (lenv-fix left))
@@ -533,8 +532,8 @@
          (invariant-renv testbench tcurr)
          (interact-env testbench))))
 
-(define invariant-trace ((el lenv-p) (er renv-p) (tr gtrace-p)
-                         (inf rationalp))
+(define invariant-env-trace ((el lenv-p) (er renv-p) (tr gtrace-p)
+                             (inf rationalp))
   :returns (ok booleanp)
   :measure (len tr)
   (b* ((tr (gtrace-fix tr))
@@ -542,9 +541,9 @@
        (first (car (gtrace-fix tr)))
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t))
-    (and (invariant el er (gstate-t->statet first) (gstate-t->statev first)
-                    inf)
-         (invariant-trace el er rest inf))))
+    (and (invariant-env el er (gstate-t->statet first) (gstate-t->statev first)
+                        inf)
+         (invariant-env-trace el er rest inf))))
 
 (std::must-fail
  (defthm invariant-check-contradiction
@@ -563,10 +562,10 @@
                     (interval->hi (renv->delta er)))
              (consp (gtrace-fix tr))
              (consp (gtrace-fix (cdr (gtrace-fix tr))))
-             (invariant el er
-                        (gstate-t->statet (car (gtrace-fix tr)))
-                        (gstate-t->statev (car (gtrace-fix tr)))
-                        inf)))
+             (invariant-env el er
+                            (gstate-t->statet (car (gtrace-fix tr)))
+                            (gstate-t->statev (car (gtrace-fix tr)))
+                            inf)))
    :hints (("Goal"
             :smtlink
             (:fty (lenv renv interval gtrace sig-value gstate gstate-t
@@ -594,7 +593,7 @@
                   ))))
  )
 
-(defthm invariant-step-thm
+(defthm invariant-env-step-thm
   (implies (and (lenv-p el)
                 (renv-p er)
                 (env-connection el er)
@@ -616,15 +615,15 @@
                        (interval->hi (renv->delta er)))
                 (consp (gtrace-fix tr))
                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                (invariant el er
-                           (gstate-t->statet (car (gtrace-fix tr)))
-                           (gstate-t->statev (car (gtrace-fix tr)))
-                           inf))
-           (invariant el er
-                      (gstate-t->statet (car (gtrace-fix (cdr (gtrace-fix tr)))))
-                      (gstate-t->statev (car (gtrace-fix (cdr (gtrace-fix
-                                                               tr)))))
-                      inf))
+                (invariant-env el er
+                               (gstate-t->statet (car (gtrace-fix tr)))
+                               (gstate-t->statev (car (gtrace-fix tr)))
+                               inf))
+           (invariant-env el er
+                          (gstate-t->statet (car (gtrace-fix (cdr (gtrace-fix tr)))))
+                          (gstate-t->statev (car (gtrace-fix (cdr (gtrace-fix
+                                                                   tr)))))
+                          inf))
   :hints (("Goal"
            :smtlink
            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
@@ -655,7 +654,7 @@
                  ))))
 
 
-(defthm invariant-trace-thm
+(defthm invariant-env-trace-thm
   (implies (and (lenv-p el)
                 (renv-p er)
                 (env-connection el er)
@@ -673,19 +672,19 @@
                        (interval->hi (renv->delta er)))
                 (consp (gtrace-fix tr))
                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                (invariant el er
-                           (gstate-t->statet (car (gtrace-fix tr)))
-                           (gstate-t->statev (car (gtrace-fix tr)))
-                           inf))
-           (invariant-trace el er tr inf))
+                (invariant-env el er
+                               (gstate-t->statet (car (gtrace-fix tr)))
+                               (gstate-t->statev (car (gtrace-fix tr)))
+                               inf))
+           (invariant-env-trace el er tr inf))
   :hints (("Goal"
-           :in-theory (e/d (invariant-trace)
+           :in-theory (e/d (invariant-env-trace)
                            ())
            :expand ((lenv-valid el tr inf)
                     (renv-valid er tr inf)
-                    (invariant-trace el er tr inf)))
+                    (invariant-env-trace el er tr inf)))
           ("Subgoal *1/1'"
-           :use ((:instance invariant-step-thm
+           :use ((:instance invariant-env-step-thm
                             (el el)
                             (er er)
                             (tr tr)

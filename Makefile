@@ -12,7 +12,10 @@ JOBS ?= 3
 
 all: top
 
-top: env asp
+top: env asp test
+
+test:
+	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) rational2str
 
 env:
 	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) env

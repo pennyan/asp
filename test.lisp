@@ -1,120 +1,177 @@
 (in-package "ASP")
-;; (include-book "asp")
-
-(define test-sig ((sig t))
-  (b* (((unless (and (true-listp sig)
-                     (consp sig)
-                     (natp (nth 0 sig))))
-        nil)
-       (sym (intern$ (str::cat "sym" (str::natstr (nth 0 sig)))
-                     "ASP")))
-    `(list (make-sig :module ',sym :index ,(nth 1 sig)))))
-
-(define test-delta ((delta t))
-  (b* (((unless (true-listp delta))
-        nil))
-    `(make-interval
-      :lo ,(nth 0 delta)
-      :hi ,(nth 1 delta))))
-
-(define test-sig-value ((sigv t))
-  (b* (((unless (true-listp sigv))
-        nil))
-    `(make-sig-value :value ,(nth 0 sigv)
-                     :time ,(nth 1 sigv))))
+(include-book "std/util/define" :dir :system)
+(include-book "tools/bstar" :dir :system)
+(include-book "centaur/fty/top" :dir :system) ; for defalist, etc.
+(include-book "rational2str")
 
 (define pretty-print (failed-clauses)
   :guard t
   (if failed-clauses failed-clauses 'passed))
 
-(set-ignore-ok t)
-(define test-invariant ((sigs t) (deltas t)
-                        (curr t) (tcurr t)
-                        (inf t))
-  :irrelevant-formals-ok t
+(define sig-value-to-string ((sv sig-value-p) (prec natp))
+  :returns (s stringp)
+  (b* (((unless (sig-value-p sv)) "???")
+       ((sig-value sv) sv)
+       (val  (coerce (if sv.value "t" "nil") 'list))
+       (at   (coerce " @ " 'list))
+       (tim (coerce (rational-to-string sv.time prec) 'list)))
+    (coerce (append val at tim) 'string)))
+
+(define interval-to-string ((iv interval-p) (prec natp))
+  :returns (s stringp)
+  (b* (((unless (interval-p iv)) "???")
+       (prec (if (natp prec) prec 4))
+       (lo (rational-to-string (interval->lo iv) prec))
+       (hi (rational-to-string (interval->hi iv) prec)))
+    (concatenate 'string "[" lo ", " hi ")")))
+
+(define show-sig ((sig sig-path-p)
+                  (st gstate-p)
+                  (name stringp)
+                  (prec natp))
+  (b* ((sig (sig-path-fix sig))
+       (st (gstate-fix st))
+       (pair (assoc-equal sig st))
+       ((unless pair)
+        (cw "Sig ~p0 not found!~%" sig))
+       (v (cdr (assoc-equal sig st))))
+    (cw "  ~s0 = ~x1 @ ~s2~%" name (sig-value->value v)
+        (rational-to-string (sig-value->time v) prec)
+        :fmt-control-alist
+        `((fmt-soft-right-margin . 1000)
+          (fmt-hard-right-margin . 1000)))))
+
+(define test ((cex t))
   :verify-guards nil
-  (b* (((unless (and (true-listp sigs)
-                     (true-listp deltas)
-                     (true-listp curr)))
-        nil)
-       (go-full (test-sig (nth 0 sigs)))
-       (go-empty (test-sig (nth 1 sigs)))
-       (full (test-sig (nth 2 sigs)))
-       (empty (test-sig (nth 3 sigs)))
-       (full-internal (test-sig (nth 4 sigs)))
-       (left-internal (test-sig (nth 5 sigs)))
-       (right-internal (test-sig (nth 6 sigs)))
-       (delta-stage (test-delta (nth 0 deltas)))
-       (delta-lenv (test-delta (nth 1 deltas)))
-       (delta-renv (test-delta (nth 2 deltas)))
-       (test-stage `(make-asp-stage :go-full ,go-full
-                                    :go-empty ,go-empty
-                                    :full ,full
-                                    :empty ,empty
-                                    :full-internal ,full-internal
-                                    :delta ,delta-stage
-                                    ))
-       (test-lenv `(make-lenv :empty ,empty
-                              :go-full ,go-full
-                              :left-internal ,left-internal
-                              :delta ,delta-lenv))
-       (test-renv `(make-renv :full ,full
-                              :go-empty ,go-empty
-                              :right-internal ,right-internal
-                              :delta ,delta-renv))
-       (curr `(list (cons ,go-full ,(test-sig-value (nth 0 curr)))
-                    (cons ,go-empty ,(test-sig-value (nth 1 curr)))
-                    (cons ,full ,(test-sig-value (nth 2 curr)))
-                    (cons ,empty ,(test-sig-value (nth 3 curr)))
-                    (cons ,full-internal ,(test-sig-value (nth 4 curr)))
-                    (cons ,left-internal ,(test-sig-value (nth 5 curr)))
-                    (cons ,right-internal ,(test-sig-value (nth 6 curr)))))
-       (go-empty `(cdr (assoc-equal ,go-empty ,curr)))
-       (go-full `(cdr (assoc-equal ,go-full ,curr)))
-       (empty `(cdr (assoc-equal ,empty ,curr)))
-       (full `(cdr (assoc-equal ,full ,curr)))
-       (full-internal `(cdr (assoc-equal ,full-internal ,curr)))
-       (left-internal `(cdr (assoc-equal ,left-internal ,curr)))
-       (right-internal `(cdr (assoc-equal ,right-internal ,curr)))
-       (inv `(invariant ,test-stage ,test-lenv ,test-renv ,tcurr ,curr ,inf))
-       (inv-stage `(invariant-stage-failed ,go-full ,go-empty ,full ,empty
-			                                     ,full-internal ,delta-stage ,tcurr))
-       (inv-lenv `(invariant-lenv-failed ,go-full ,empty ,left-internal ,delta-lenv ,tcurr))
-       (inv-renv `(invariant-renv-failed ,go-empty ,full ,right-internal ,delta-renv ,tcurr))
-       (inv-interact-lenv `(interact-lenv-failed ,go-full ,go-empty ,full ,empty
-                                                 ,full-internal
-                                                 ,left-internal ,right-internal
-                                                 ,delta-stage ,inf))
-       (inv-interact-renv `(interact-renv-failed ,go-full ,go-empty ,full ,empty
-                                                 ,full-internal
-                                                 ,left-internal ,right-internal
-                                                 ,delta-stage ,inf))
+  (b* ((asp (cdr (assoc 'asp cex)))
+       (lenv (cdr (assoc 'lenv cex)))
+       (renv (cdr (assoc 'renv cex)))
+       (tr (cdr (assoc 'tr cex)))
+       (prev (car tr))
+       (next (cadr tr))
+       (inf (cdr (assoc 'inf cex)))
+       (prec 8)
+       (tprev (gstate-t->statet prev))
+       (prevv (gstate-t->statev prev))
+       (tnext (gstate-t->statet next))
+       (nextv (gstate-t->statev next))
+       (li-path (lenv->left-internal lenv))
+       (gf-path (asp-stage->go-full asp))
+       (em-path (asp-stage->empty asp))
+       (fi-path (asp-stage->full-internal asp))
+       (fl-path (asp-stage->full asp))
+       (ge-path (asp-stage->go-empty asp))
+       (ri-path  (renv->right-internal renv))
+       (delta (lenv->delta lenv))
+       (- (cw "-----------------------------------------------------~%"))
+       (- (cw "(inf = ~s0,~% delta = [~s1, ~s2))~%"
+              (rational-to-string inf prec)
+              (rational-to-string (interval->lo delta) prec)
+              (rational-to-string (interval->hi delta) prec)))
+       (- (cw "prev: tprev = ~s0~%" (rational-to-string tprev prec)))
+       (- (show-sig li-path prevv "left-internal" prec))
+       (- (show-sig gf-path prevv "go-full" prec))
+       (- (show-sig em-path prevv "empty" prec))
+       (- (show-sig fi-path prevv "full-internal" prec))
+       (- (show-sig fl-path prevv "full" prec))
+       (- (show-sig ge-path prevv "go-empty" prec))
+       (- (show-sig ri-path prevv "right-internal" prec))
+       (- (cw "next: tnext = ~s0~%" (rational-to-string tnext prec)))
+       (- (show-sig li-path nextv "left-internal" prec))
+       (- (show-sig gf-path nextv "go-full" prec))
+       (- (show-sig em-path nextv "empty" prec))
+       (- (show-sig fi-path nextv "full-internal" prec))
+       (- (show-sig fl-path nextv "full" prec))
+       (- (show-sig ge-path nextv "go-empty" prec))
+       (- (show-sig ri-path nextv "right-internal" prec))
+       (- (cw "-----------------------------------------------------~%"))
+       (lstep  (lenv-step lenv prev next inf))
+       (lvalid (lenv-valid lenv tr inf))
+       (rstep  (renv-step renv prev next inf))
+       (rvalid (renv-valid renv tr inf))
+       (- (cw "lstep = ~x0, lvalid = ~x1, rstep=~x2, rvalid=~x3~%"
+              lstep lvalid rstep rvalid))
+       (- (cw "-----------------------------------------------------~%"))
+       (- (cw "Testing invariant on next state~%"))
+       (li (cdr (assoc-equal li-path nextv)))
+       (gf (cdr (assoc-equal gf-path nextv)))
+       (em (cdr (assoc-equal em-path nextv)))
+       (fi (cdr (assoc-equal fi-path nextv)))
+       (fl (cdr (assoc-equal fl-path nextv)))
+       (ge (cdr (assoc-equal ge-path nextv)))
+       (ri (cdr (assoc-equal ri-path nextv)))
+       (testbench-left (make-asp-env-testbench
+                        :req gf
+                        :ack em
+                        :li li
+                        :ri fi
+                        :delta delta
+                        :inf inf))
+       (testbench-right (make-asp-env-testbench
+                         :req fl
+                         :ack ge
+                         :li fi
+                         :ri ri
+                         :delta delta
+                         :inf inf))
+       (inv (invariant-asp-stage asp lenv renv tnext nextv inf))
+       (- (cw "~%Testing the whole invariant on next state: ~q0"
+              (if inv 'passed 'failed)))
+       (- (cw "----------------Left half---------------------~%"))
+       (inv-lenv (invariant-lenv-failed testbench-left tnext))
+       (- (cw "Testing invariant on the left env: ~q0"
+              (pretty-print inv-lenv)))
+       (inv-renv (invariant-renv-failed testbench-left tnext))
+       (- (cw "Testing invariant on the right env: ~q0"
+              (pretty-print inv-renv)))
+       (inv-interact-env (interact-env-failed testbench-left))
+       (- (cw "Testing invariant on the interaction between envs: ~q0"
+              (pretty-print inv-interact-env)))
+       (lb (leftbench testbench-left))
+       (rb (rightbench testbench-left))
+       (- (cw "li_idle = ~s0~%"
+              (interval-to-string (internal-idle-time  lb) prec)))
+       (- (cw "li_ready = ~s0~%"
+              (interval-to-string (internal-next-ready-time  lb) prec)))
+       (- (cw "lx_idle = ~s0~%"
+              (interval-to-string (external-idle-time  lb) prec)))
+       (- (cw "lx_ready = ~s0~%"
+              (interval-to-string (external-next-ready-time  lb) prec)))
+       (- (cw "ri_idle = ~s0~%"
+              (interval-to-string (internal-idle-time  rb) prec)))
+       (- (cw "ri_ready = ~s0~%"
+              (interval-to-string (internal-next-ready-time  rb) prec)))
+       (- (cw "rx_idle = ~s0~%"
+              (interval-to-string (external-idle-time  rb) prec)))
+       (- (cw "rx_ready = ~s0~%"
+              (interval-to-string (external-next-ready-time rb) prec)))
+       (- (cw "----------------Right half---------------------~%"))
+       (inv-lenv (invariant-lenv-failed testbench-right tnext))
+       (- (cw "Testing invariant on the left env: ~q0"
+              (pretty-print inv-lenv)))
+       (inv-renv (invariant-renv-failed testbench-right tnext))
+       (- (cw "Testing invariant on the right env: ~q0"
+              (pretty-print inv-renv)))
+       (inv-interact-env (interact-env-failed testbench-right))
+       (- (cw "Testing invariant on the interaction between envs: ~q0"
+              (pretty-print inv-interact-env)))
+       (lb (leftbench testbench-right))
+       (rb (rightbench testbench-right))
+       (- (cw "li_idle = ~s0~%"
+              (interval-to-string (internal-idle-time  lb) prec)))
+       (- (cw "li_ready = ~s0~%"
+              (interval-to-string (internal-next-ready-time  lb) prec)))
+       (- (cw "lx_idle = ~s0~%"
+              (interval-to-string (external-idle-time  lb) prec)))
+       (- (cw "lx_ready = ~s0~%"
+              (interval-to-string (external-next-ready-time  lb) prec)))
+       (- (cw "ri_idle = ~s0~%"
+              (interval-to-string (internal-idle-time  rb) prec)))
+       (- (cw "ri_ready = ~s0~%"
+              (interval-to-string (internal-next-ready-time  rb) prec)))
+       (- (cw "rx_idle = ~s0~%"
+              (interval-to-string (external-idle-time  rb) prec)))
+       (- (cw "rx_ready = ~s0~%"
+              (interval-to-string (external-next-ready-time  rb) prec)))
        )
-    `(progn$
-      (cw "Current signal values:~%left-internal = ~q0, go-full = ~q1, empty = ~q2, full-internal = ~q3, full = ~q4, go-empty = ~q5, right-internal = ~q6"
-          ,left-internal ,go-full ,empty ,full-internal ,full ,go-empty ,right-internal)
-      (cw "~%Testing the whole invariant on curr state: ~q0" (if ,inv 'passed 'failed))
-      (cw "Testing invariant on the stage: ~q0" (pretty-print ,inv-stage))
-      (cw "Testing invariant on the left env: ~q0" (pretty-print ,inv-lenv))
-      (cw "Testing invariant on the right env: ~q0" (pretty-print ,inv-renv))
-      (cw "Testing invariant on the interaction with left env: ~q0"
-          (pretty-print ,inv-interact-lenv))
-      (cw "Testing invariant on the interaction with right env: ~q0"
-          (pretty-print ,inv-interact-renv))
-      )))
-
-(defmacro test-invariant-macro (sigs deltas curr tcurr)
-  (b* ((cmd (test-invariant sigs deltas curr tcurr 1000))
-       ;; (- (cw "cmd: ~q0" cmd))
-       )
-    cmd))
-
-;;(test-invariant-macro ((9 8) (5 4) (3 2) nil (11 10) (7 6) (1 0))
-;;                      ((8 10) (8 10) (8 10))
-;;                      ;; go-full go-empty full empty
-;;                      ((nil 1) (t 0) (nil 7) (t 0) (t 8) (t 70609/10000) (t 8))
-;;                      ;; ((nil 1) (t 0) (t 16) (t 0) (t 8) (t 70609/10000) (t 8))
-;;                      8
-;;                      ;; 16
-;;                      )
-
+    nil))

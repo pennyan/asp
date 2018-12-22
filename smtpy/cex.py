@@ -1,6 +1,7 @@
 import x
 from z3 import simplify, Solver, Not, sat, unsat, unknown
 import re
+from cex_basics import *
 
 def z3numstr(num):
   return simplify(num).as_decimal(6)
@@ -77,6 +78,50 @@ def translate(term):
   step3 = step2.replace(".0", "").replace("False", "nil").replace("True","t")
   return step3
 
+def lenv_to_acl2(el):
+  return('(make-lenv ' + ':ack-in ' + sigPath_to_acl2(x.lenv.ack_sub_in(el)) + '\n'
+         + ':req-out ' + sigPath_to_acl2(x.lenv.req_sub_out(el)) + '\n'
+         + ':left-internal ' + sigPath_to_acl2(x.lenv.left_sub_internal(el)) + '\n'
+         + ':delta ' + interval_to_acl2(x.lenv.delta(el)) + ')\n')
+
+def renv_to_acl2(er):
+  return('(make-renv ' + ':req-in ' + sigPath_to_acl2(x.renv.req_sub_in(er)) + '\n'
+         + ':ack-out ' + sigPath_to_acl2(x.renv.ack_sub_out(er)) + '\n'
+         + ':right-internal ' + sigPath_to_acl2(x.renv.right_sub_internal(er)) + '\n'
+         + ':delta ' + interval_to_acl2(x.renv.delta(er)) + ')\n')
+
+def asp_stage_to_acl2(a):
+  return('(make-asp-stage '
+         + ':go-full ' + sigPath_to_acl2(x.asp_sub_stage.go_sub_full(a)) + '\n'
+         + ':empty ' + sigPath_to_acl2(x.asp_sub_stage.empty(a)) + '\n'
+         + ':go-empty ' + sigPath_to_acl2(x.asp_sub_stage.go_sub_empty(a)) + '\n'
+         + ':full ' + sigPath_to_acl2(x.asp_sub_stage.full(a)) + '\n'
+         + ':full-internal ' + sigPath_to_acl2(x.asp_sub_stage.full_sub_internal(a)) + '\n'
+         + ':left ' + renv_to_acl2(x.asp_sub_stage.left(a)) + '\n'
+         + ':right ' + lenv_to_acl2(x.asp_sub_stage.right(a)) + '\n'
+         + ':delta ' + interval_to_acl2(x.asp_sub_stage.delta(a)) + ')\n')
+
+def acl2m(m):
+  a = m[x.a]
+  el = m[x.el]
+  er = m[x.er]
+  tr = m[x.tr]
+  inf = m[x.inf]
+  sigs = [ x.lenv.left_sub_internal(el),
+           x.asp_sub_stage.go_sub_full(a),
+           x.asp_sub_stage.empty(a),
+           x.asp_sub_stage.full_sub_internal(a),
+           x.asp_sub_stage.full(a),
+           x.asp_sub_stage.go_sub_empty(a),
+           x.renv.right_sub_internal(er) ]
+  return("(defun cex ()\n" +
+          "(list" + "(cons 'asp " + asp_stage_to_acl2(a) + ")     \n"
+                  + "(cons 'lenv " + lenv_to_acl2(el) + ")     \n"
+                  + "(cons 'renv " + renv_to_acl2(er) + ")     \n"
+                  + "(cons 'tr " + gtrace_to_acl2(tr, m, sigs) + ")\n"
+                  + "(cons 'inf " + rational_to_acl2(inf) + ")))\n")
+
+
   # fetch the counter-example from x and print it in a human readable form
 def main():
   thm = x.theorem
@@ -91,8 +136,5 @@ def main():
     m = mySolver.model()
     lines = cex_str(m)
     [print(line) for line in lines]
-    term = acl2(m)
-    print("\nUse below form to test next state invariants:")
-    print("(test-invariant-macro ")
-    [print(translate(line)) for line in term]
-    print(")")
+    print("\nUse the form below to test the next state invariants:")
+    print(acl2m(m))
