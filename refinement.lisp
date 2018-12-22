@@ -23,22 +23,21 @@
 
   (defthm inv1-holds-for-module1&env1
     (implies (and (inv1 s1) (module1 s1 s2) (env1 s1 s2))
-		  	     (inv1 s2)))
+             (inv1 s2)))
 
   (defthm inv2-holds-for-module2&env2
     (implies (and (inv2 s1) (module2 s1 s2) (env2 s1 s2))
-			       (inv2 s2)))
+             (inv2 s2)))
 
   (defthm env2-holds-if-inv1&inv2-for-module1
     (implies (and (inv1 s1) (inv2 s1) (module1 s1 s2))
-			       (env2 s1 s2)))
+             (env2 s1 s2)))
 
   (defthm env1-holds-if-inv1&inv2-for-module2
     (implies (and (inv1 s1) (inv2 s1) (module2 s1 s2))
-			       (env1 s1 s2)))
+             (env1 s1 s2)))
   )
 
 (defthm inv1&inv2-holds-for-module1&module2
   (implies (and (inv1 s1) (inv2 s1) (module1 s1 s2) (module2 s1 s2))
-		       (and (inv1 s2) (inv2 s2))))
-
+           (and (inv1 s2) (inv2 s2))))
