@@ -107,13 +107,13 @@
 ;;    The invariant
 (define invariant-asp-stage ((a asp-stage-p)
                              (el lenv-p) (er renv-p)
-                             (tcurr rationalp) (curr gstate-p)
+                             (curr gstate-t-p)
                              (inf rationalp))
   :returns (ok booleanp)
   (b* (((asp-stage a) (asp-stage-fix a)))
     (and (< 0 inf)
-         (invariant-env el (asp-stage->left a) tcurr curr inf)
-         (invariant-env (asp-stage->right a) er tcurr curr inf))))
+         (invariant-env el (asp-stage->left a) curr inf)
+         (invariant-env (asp-stage->right a) er curr inf))))
 
 (define invariant-asp-stage-trace ((a asp-stage-p) (el lenv-p) (er renv-p)
                                    (tr gtrace-p) (inf rationalp))
@@ -124,10 +124,7 @@
        (first (car (gtrace-fix tr)))
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t))
-    (and (invariant-asp-stage a el er
-                              (gstate-t->statet first)
-                              (gstate-t->statev first)
-                              inf)
+    (and (invariant-asp-stage a el er first inf)
          (invariant-asp-stage-trace a el er rest inf))))
 
 (std::must-fail
@@ -163,10 +160,7 @@
                     (interval->hi (renv->delta er)))
              (consp (gtrace-fix tr))
              (consp (gtrace-fix (cdr (gtrace-fix tr))))
-             (invariant-asp-stage a el er
-                                  (gstate-t->statet (car (gtrace-fix tr)))
-                                  (gstate-t->statev (car (gtrace-fix tr)))
-                                  inf)))
+             (invariant-asp-stage a el er (car (gtrace-fix tr)) inf)))
    :hints (("Goal"
             :smtlink
             (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
@@ -229,14 +223,8 @@
                        (interval->hi (renv->delta er)))
                 (consp (gtrace-fix tr))
                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                (invariant-asp-stage a el er
-                                     (gstate-t->statet (car (gtrace-fix tr)))
-                                     (gstate-t->statev (car (gtrace-fix tr)))
-                                     inf))
-           (invariant-asp-stage a el er
-                                (gstate-t->statet (car (gtrace-fix (cdr (gtrace-fix tr)))))
-                                (gstate-t->statev (car (gtrace-fix (cdr (gtrace-fix
-                                                                         tr)))))
+                (invariant-asp-stage a el er (car (gtrace-fix tr)) inf))
+           (invariant-asp-stage a el er (car (gtrace-fix (cdr (gtrace-fix tr))))
                                 inf))
   :hints (("Goal"
            :smtlink

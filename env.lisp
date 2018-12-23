@@ -505,21 +505,22 @@
 ;; ------------------------------------------------------------------------------
 
 (define invariant-env ((left lenv-p) (right renv-p)
-                       (tcurr rationalp) (curr gstate-p)
-                       (inf rationalp))
+                       (curr gstate-t-p) (inf rationalp))
   :returns (ok booleanp)
   :guard-hints (("Goal" :in-theory (enable sigs-in-bool-table
                                            lenv-sigs renv-sigs)))
   (b* (((lenv left) (lenv-fix left))
        ((renv right) (renv-fix right))
-       (curr (gstate-fix curr))
-       ((unless (sigs-in-bool-table (lenv-sigs left) curr)) nil)
-       ((unless (sigs-in-bool-table (renv-sigs right) curr)) nil)
+       (curr (gstate-t-fix curr))
+       (currt (gstate-t->statet curr))
+       (currv (gstate-t->statev curr))
+       ((unless (sigs-in-bool-table (lenv-sigs left) currv)) nil)
+       ((unless (sigs-in-bool-table (renv-sigs right) currv)) nil)
        (delta left.delta)
-       ((sig-value li)  (state-get left.left-internal curr))
-       ((sig-value req) (state-get left.req-out curr))
-       ((sig-value ack) (state-get right.ack-out curr))
-       ((sig-value ri)  (state-get right.right-internal curr))
+       ((sig-value li)  (state-get left.left-internal currv))
+       ((sig-value req) (state-get left.req-out currv))
+       ((sig-value ack) (state-get right.ack-out currv))
+       ((sig-value ri)  (state-get right.right-internal currv))
        (testbench (make-asp-env-testbench
                    :req req
                    :ack ack
@@ -528,8 +529,8 @@
                    :delta delta
                    :inf inf)))
     (and (< 0 inf)
-         (invariant-lenv testbench tcurr)
-         (invariant-renv testbench tcurr)
+         (invariant-lenv testbench currt)
+         (invariant-renv testbench currt)
          (interact-env testbench))))
 
 (define invariant-env-trace ((el lenv-p) (er renv-p) (tr gtrace-p)
@@ -541,8 +542,7 @@
        (first (car (gtrace-fix tr)))
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t))
-    (and (invariant-env el er (gstate-t->statet first) (gstate-t->statev first)
-                        inf)
+    (and (invariant-env el er first inf)
          (invariant-env-trace el er rest inf))))
 
 (std::must-fail
@@ -562,10 +562,7 @@
                     (interval->hi (renv->delta er)))
              (consp (gtrace-fix tr))
              (consp (gtrace-fix (cdr (gtrace-fix tr))))
-             (invariant-env el er
-                            (gstate-t->statet (car (gtrace-fix tr)))
-                            (gstate-t->statev (car (gtrace-fix tr)))
-                            inf)))
+             (invariant-env el er (car (gtrace-fix tr)) inf)))
    :hints (("Goal"
             :smtlink
             (:fty (lenv renv interval gtrace sig-value gstate gstate-t
@@ -615,15 +612,8 @@
                        (interval->hi (renv->delta er)))
                 (consp (gtrace-fix tr))
                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                (invariant-env el er
-                               (gstate-t->statet (car (gtrace-fix tr)))
-                               (gstate-t->statev (car (gtrace-fix tr)))
-                               inf))
-           (invariant-env el er
-                          (gstate-t->statet (car (gtrace-fix (cdr (gtrace-fix tr)))))
-                          (gstate-t->statev (car (gtrace-fix (cdr (gtrace-fix
-                                                                   tr)))))
-                          inf))
+                (invariant-env el er (car (gtrace-fix tr)) inf))
+           (invariant-env el er (car (gtrace-fix (cdr (gtrace-fix tr)))) inf))
   :hints (("Goal"
            :smtlink
            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
@@ -672,10 +662,7 @@
                        (interval->hi (renv->delta er)))
                 (consp (gtrace-fix tr))
                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                (invariant-env el er
-                               (gstate-t->statet (car (gtrace-fix tr)))
-                               (gstate-t->statev (car (gtrace-fix tr)))
-                               inf))
+                (invariant-env el er (car (gtrace-fix tr)) inf))
            (invariant-env-trace el er tr inf))
   :hints (("Goal"
            :in-theory (e/d (invariant-env-trace)
