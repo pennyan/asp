@@ -175,11 +175,6 @@
                                                     (inf rationalp))
 				                                  :returns ((ok booleanp))
 				                                  :level 1)
-			                        (asp-valid :formals ((a asp-stage-p)
-					                                         (tr gtrace-p)
-                                                   (inf rationalp))
-				                                 :returns ((ok booleanp))
-				                                 :level 1)
 			                        )
                   :evilp t
                   ))))
@@ -234,11 +229,6 @@
                                                    (inf rationalp))
 				                                 :returns ((ok booleanp))
 				                                 :level 1)
-			                       (asp-valid :formals ((a asp-stage-p)
-					                                        (tr gtrace-p)
-                                                  (inf rationalp))
-				                                :returns ((ok booleanp))
-				                                :level 1)
 			                       )
                  :smt-fname "x.py"
                  :smt-dir "smtpy"
