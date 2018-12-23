@@ -118,16 +118,16 @@
 
                 (invariant-asp-stage a el2 er2 s1 inf))
            (invariant-asp-stage a el2 er2 s2 inf))
-    :hints (("Goal"
+  :hints (("Goal"
            :smtlink
            (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
                             sig-path-list sig-path sig sig-target
                             asp-env-testbench asp-my-bench integer-list
                             sig-value-list)
-	               :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
-						                                               (st gstate-p))
-					                                       :returns ((ok booleanp))
-					                                       :level 5))
+                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                           (st gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 5))
                  :evilp t
                  )))
   )
@@ -180,10 +180,10 @@
                             sig-path-list sig-path sig sig-target
                             asp-env-testbench asp-my-bench integer-list
                             sig-value-list)
-	               :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
-						                                               (st gstate-p))
-					                                       :returns ((ok booleanp))
-					                                       :level 5))
+                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                           (st gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 5))
                  :smt-fname "x.py"
                  :smt-dir "smtpy"
                  :evilp t
