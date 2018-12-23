@@ -552,8 +552,12 @@
              (env-connection el er)
              (gtrace-p tr)
              (rationalp inf)
-             (lenv-valid el tr inf)
-             (renv-valid er tr inf)
+             (lenv-step el (car (gtrace-fix tr))
+                        (car (gtrace-fix (cdr (gtrace-fix tr))))
+                        inf)
+             (renv-step er (car (gtrace-fix tr))
+                        (car (gtrace-fix (cdr (gtrace-fix tr))))
+                        inf)
              (valid-interval (lenv->delta el))
              (valid-interval (renv->delta er))
              (equal (lenv->delta el)
@@ -571,20 +575,7 @@
                                :formals ((sigs sig-path-listp)
                                          (st gstate-p))
                                :returns ((ok booleanp))
-                               :level 3)
-                              (lenv-valid
-                               :formals ((e lenv-p)
-                                         (tr gtrace-p)
-                                         (inf rationalp))
-                               :returns ((ok booleanp))
-                               :level 1)
-                              (renv-valid
-                               :formals ((e renv-p)
-                                         (tr gtrace-p)
-                                         (inf rationalp))
-                               :returns ((ok booleanp))
-                               :level 1)
-                              )
+                               :level 3))
                   ))))
  )
 
@@ -618,22 +609,7 @@
                               :formals ((sigs sig-path-listp)
                                         (st gstate-p))
                               :returns ((ok booleanp))
-                              :level 3)
-                             (lenv-valid
-                              :formals ((e lenv-p)
-                                        (tr gtrace-p)
-                                        (inf rationalp))
-                              :returns ((ok booleanp))
-                              :level 1)
-                             (renv-valid
-                              :formals ((e renv-p)
-                                        (tr gtrace-p)
-                                        (inf rationalp))
-                              :returns ((ok booleanp))
-                              :level 1)
-                             )
-                 :smt-fname "x.py"
-                 :smt-dir "smtpy"
+                              :level 3))
                  :evilp t
                  ))))
 
