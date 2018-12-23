@@ -81,7 +81,8 @@
   :returns (ok booleanp)
   (b* ((i (interval-fix i)))
     (and (> (interval->lo i) 0)
-         (< (interval->lo i) (interval->hi i)))))
+         (< (interval->lo i) (interval->hi i))
+         (> (* 2 (interval->lo i)) (interval->hi i)))))
 
 (define interval-add ((itv1 interval-p) (itv2 interval-p))
   :returns (itv interval-p)
