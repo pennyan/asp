@@ -173,8 +173,12 @@
                 (lenv-step el0 s1 s2 inf)
                 (renv-step er1 s1 s2 inf)
                 ;; need these constraints
+                (sigs-in-bool-table (lenv-sigs el2) (gstate-t->statev s1))
+                (sigs-in-bool-table (renv-sigs er2) (gstate-t->statev s1))
                 (sigs-in-bool-table (lenv-sigs el2) (gstate-t->statev s2))
                 (sigs-in-bool-table (renv-sigs er2) (gstate-t->statev s2))
+                (equal el0 el2)
+                (equal er1 er2)
                 )
            (and (lenv-step el2 s1 s2 inf)
                 (renv-step er2 s1 s2 inf)))
@@ -188,8 +192,69 @@
                                                            (st gstate-p))
                                                  :returns ((ok booleanp))
                                                  :level 5))
-                 :smt-fname "x.py"
-                 :smt-dir "smtpy"
+                 :evilp t
+                 )))
+  )
+
+(defthm thm4
+  (implies (and (gstate-t-p s1)
+                (gstate-t-p s2)
+                (rationalp inf)
+
+                (lenv-p el0)
+                (renv-p er0)
+                (env-connection el0 er0)
+                (valid-interval (lenv->delta el0))
+                (valid-interval (renv->delta er0))
+                (equal (lenv->delta el0)
+                       (renv->delta er0))
+
+                (lenv-p el1)
+                (renv-p er1)
+                (env-connection el1 er1)
+                (valid-interval (lenv->delta el1))
+                (valid-interval (renv->delta er1))
+                (equal (lenv->delta el1)
+                       (renv->delta er1))
+
+                (asp-stage-p a)
+                (lenv-p el2)
+                (renv-p er2)
+                (asp-internal-connection a)
+                (asp-connection a el2 er2)
+                (valid-interval (asp-stage->delta a))
+                (valid-interval (lenv->delta el2))
+                (valid-interval (renv->delta er2))
+                (equal (asp-stage->delta a)
+                       (lenv->delta el2))
+                (equal (asp-stage->delta a)
+                       (renv->delta er2))
+
+                (invariant-env el0 er0 s1 inf)
+                (invariant-env el1 er1 s1 inf)
+                (invariant-asp-stage a el2 er2 s1 inf)
+
+                (asp-step a s1 s2 inf)
+                ;; need these constraints
+                (sigs-in-bool-table (lenv-sigs el1) (gstate-t->statev s1))
+                (sigs-in-bool-table (renv-sigs er0) (gstate-t->statev s1))
+                (sigs-in-bool-table (lenv-sigs el1) (gstate-t->statev s2))
+                (sigs-in-bool-table (renv-sigs er0) (gstate-t->statev s2))
+                (equal (asp-stage->left a) er0)
+                (equal (asp-stage->right a) el1)
+                )
+           (and (renv-step er0 s1 s2 inf)
+                (lenv-step el1 s1 s2 inf)))
+  :hints (("Goal"
+           :smtlink
+           (:fty (asp-stage lenv renv interval gtrace sig-value gstate gstate-t
+                            sig-path-list sig-path sig sig-target
+                            asp-env-testbench asp-my-bench integer-list
+                            sig-value-list)
+                 :functions ((sigs-in-bool-table :formals ((sigs sig-path-listp)
+                                                           (st gstate-p))
+                                                 :returns ((ok booleanp))
+                                                 :level 5))
                  :evilp t
                  )))
   )
