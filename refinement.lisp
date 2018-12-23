@@ -171,7 +171,11 @@
                 (invariant-asp-stage a el2 er2 s1 inf)
 
                 (lenv-step el0 s1 s2 inf)
-                (renv-step er1 s1 s2 inf))
+                (renv-step er1 s1 s2 inf)
+                ;; need these constraints
+                (sigs-in-bool-table (lenv-sigs el2) (gstate-t->statev s2))
+                (sigs-in-bool-table (renv-sigs er2) (gstate-t->statev s2))
+                )
            (and (lenv-step el2 s1 s2 inf)
                 (renv-step er2 s1 s2 inf)))
   :hints (("Goal"
