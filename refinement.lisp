@@ -259,3 +259,40 @@
                  :evilp t
                  )))
   )
+
+(defthm thm5
+  (implies (and (gstate-t-p s1)
+                (gstate-t-p s2)
+                (rationalp inf)
+                (lenv-p el0)
+                (renv-p er0)
+                (lenv-p el1)
+                (renv-p er1)
+                (constraints1-example el0 er0 el1 er1)
+
+                (asp-stage-p a)
+                (lenv-p el2)
+                (renv-p er2)
+                (constraints2-example a el2 er2)
+
+                (inv1-example el0 er0 el1 er1 s1 inf)
+                (inv2-example a el2 er2 s1 inf)
+                (module1-example el0 er1 s1 s2 inf)
+                (module2-example a s1 s2 inf)
+
+                ;; additional constraints
+                (equal el0 el2)
+                (equal er1 er2)
+                (equal (asp-stage->left a) er0)
+                (equal (asp-stage->right a) el1))
+           (and (inv1-example el0 er0 el1 er1 s2 inf)
+                (inv2-example a el2 er2 s2 inf)
+                ))
+  :hints (("Goal"
+           :in-theory (e/d ()
+                           (thm1 thm2 thm3 thm4))
+           :use ((:instance thm1)
+                 (:instance thm2)
+                 (:instance thm3)
+                 (:instance thm4))))
+  )
