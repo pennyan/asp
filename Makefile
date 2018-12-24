@@ -12,7 +12,10 @@ JOBS ?= 3
 
 all: top
 
-top: env asp test
+top: env asp test refine pipe
+
+pipe:
+	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) asp-pipe
 
 refine:
 	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) refinement

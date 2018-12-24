@@ -102,7 +102,9 @@
                 (lenv-p el1)
                 (renv-p er1)
                 (rationalp inf)
+
                 (constraints1-example el0 er0 el1 er1)
+
                 (module1-example el0 er1 s1 s2 inf)
                 (env1-example er0 el1 s1 s2 inf)
                 (inv1-example el0 er0 el1 er1 s1 inf))

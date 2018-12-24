@@ -144,7 +144,7 @@
                          :ri er2.ri
                          :delta delta
                          :inf inf))
-       (inv (invariant-asp-stage a el2 er2 tnext nextv inf))
+       (inv (invariant-asp-stage a el2 er2 s2 inf))
        (- (cw "~%Testing the whole invariant on next state: ~q0"
               (if inv 'passed 'failed)))
        (- (cw "----------------Left half---------------------~%"))
@@ -228,7 +228,7 @@
                          :delta delta
                          :inf inf))
        (- (cw "----------------Left half---------------------~%"))
-       (inv (invariant-env el0 er0 tnext nextv inf))
+       (inv (invariant-env el0 er0 s2 inf))
        (- (cw "~%Testing the whole invariant on next state for left: ~q0"
               (if inv 'passed 'failed)))
        (inv-lenv (invariant-lenv-failed testbench-left tnext))
@@ -241,7 +241,7 @@
        (- (cw "Testing invariant on the interaction between envs: ~q0"
               (pretty-print inv-interact-env)))
        (- (cw "----------------Right half---------------------~%"))
-       (inv (invariant-env el1 er1 tnext nextv inf))
+       (inv (invariant-env el1 er1 s2 inf))
        (- (cw "~%Testing the whole invariant on next state for right: ~q0"
               (if inv 'passed 'failed)))
        (inv-lenv (invariant-lenv-failed testbench-right tnext))
@@ -252,5 +252,5 @@
               (pretty-print inv-renv)))
        (inv-interact-env (interact-env-failed testbench-right))
        (- (cw "Testing invariant on the interaction between envs: ~q0"
-       )
+              (pretty-print inv-interact-env))))
     nil))
