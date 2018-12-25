@@ -173,7 +173,9 @@
        (- (cw "-----------------------------------------------------~%"))
        (lenv-hf (lenv-hazard-free-step (asp-stage->right asp) prev next))
        (renv-hf (renv-hazard-free-step (asp-stage->left asp) prev next))
-       (- (cw "lhf = ~x0, rhf=~x1~%"
-              lenv-hf renv-hf))
+       (asp1-hf (asp-gate-hazard-free-step asp prev))
+       (asp2-hf (asp-gate-hazard-free-step asp next))
+       (- (cw "lhf = ~x0, rhf=~x1, ahf1=~x2, ahf2=~x3~%"
+              lenv-hf renv-hf asp1-hf asp2-hf))
        )
     nil))
