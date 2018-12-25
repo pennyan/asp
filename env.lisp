@@ -337,12 +337,12 @@
                       ;;   Therefore mx.time - delta.hi + 2*delta.lo < mi.time.
                       ;;   Although I don't think we need this one for the
                       ;;   invariant, I'm including it here for completeness.
-                      (fail-acc
-                       (if (implies (and (not mx.value) ready)
-                                    (<= (+ mx.time (- delta.hi) (* 2 delta.lo))
-                                        mi.time))
-                           fail-acc
-                         (cons 4 (integer-list-fix fail-acc))))
+                      ;; (fail-acc
+                      ;;  (if (implies (and (not mx.value) ready)
+                      ;;               (<= (+ mx.time (- delta.hi) (* 2 delta.lo))
+                      ;;                   mi.time))
+                      ;;      fail-acc
+                      ;;    (cons 4 (integer-list-fix fail-acc))))
                       ;;   Constraints for mx:  mx follows ready.
                       ;;   If (and mx mi),
                       ;;   then (in mx.time (+ mi.time delta))
@@ -657,12 +657,13 @@
        (ack-in-next (state-get el.ack-in s2.statev))
        (li-prev (state-get el.left-internal s1.statev))
        (li-next (state-get el.left-internal s2.statev))
-       (req-out-prev (state-get el.req-out s1.statev)))
+       (req-out-prev (state-get el.req-out s1.statev))
+       (req-out-next (state-get el.req-out s2.statev)))
     (and (implies (and (sig-value->value ack-in-prev)
-                       (sig-value->value li-prev)
-                       (<= (sig-value->time li-prev)
-                           (sig-value->time ack-in-prev)))
-                  (sig-value->value ack-in-next))
+                       (sig-value->value req-out-prev)
+                       (sig-value->value li-prev))
+                  (and (sig-value->value ack-in-next)
+                       (sig-value->value req-out-next)))
          (implies (not (equal (sig-value->value li-prev)
                               (sig-value->value req-out-prev)))
                   (equal (sig-value->value li-prev)
@@ -684,12 +685,13 @@
        (req-in-next (state-get er.req-in s2.statev))
        (ri-prev (state-get er.right-internal s1.statev))
        (ri-next (state-get er.right-internal s2.statev))
-       (ack-out-prev (state-get er.ack-out s1.statev)))
+       (ack-out-prev (state-get er.ack-out s1.statev))
+       (ack-out-next (state-get er.ack-out s2.statev)))
     (and (implies (and (sig-value->value req-in-prev)
                        (not (sig-value->value ri-prev))
-                       (<= (sig-value->time ri-prev)
-                           (sig-value->time req-in-prev)))
-                  (sig-value->value req-in-next))
+                       (sig-value->value ack-out-prev))
+                  (and (sig-value->value req-in-next)
+                       (sig-value->value ack-out-next)))
          (implies (equal (sig-value->value ri-prev)
                          (sig-value->value ack-out-prev))
                   (equal (sig-value->value ri-prev)
