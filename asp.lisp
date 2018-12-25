@@ -278,3 +278,28 @@
                  :smt-fname "x.py"
                  :smt-dir "smtpy"
                  ))))
+
+(defthm asp-stage-hazard-free-thm
+  (implies (and (asp-stage-p a)
+                (lenv-p el)
+                (renv-p er)
+                (rationalp inf)
+                (asp-internal-connection a)
+                (asp-connection a el er)
+                (gstate-t-p s1)
+                (gstate-t-p s2)
+                (rationalp inf)
+                (lenv-step el s1 s2 inf)
+                (renv-step er s1 s2 inf)
+                (asp-step a s1 s2 inf)
+                (valid-interval (asp-stage->delta a))
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
+                (equal (asp-stage->delta a)
+                       (lenv->delta el))
+                (equal (asp-stage->delta a)
+                       (renv->delta er))
+                (invariant-asp-stage a el er s1 inf))
+           (and (lenv-hazard-free-step el s1 s2)
+                (renv-hazard-free-step er s1 s2)
+                (asp-stage-hazard-free-step a s1 s2))))
