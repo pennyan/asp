@@ -6,6 +6,7 @@ doc/auto/*
 smtpy/x.py
 smtpy/inv_sub_theorem_2E_py
 smtpy/inv-theorem.py
+cex.lisp
 
 *.cert
 *.port
