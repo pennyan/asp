@@ -182,7 +182,7 @@
   :returns (ok booleanp)
   (b* ((prev (sig-value-fix prev))
        (next (sig-value-fix next))
-       ((unless (<= tprev tnext)) nil)
+       ((unless (< tprev tnext)) nil)
        ((unless (<= 0 (sig-value->time prev))) nil)
        ((unless (<= (sig-value->time prev) (sig-value->time next))) nil)
        ((unless (<= (sig-value->time prev) tprev)) nil)

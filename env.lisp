@@ -608,7 +608,6 @@
                  :evilp t
                  ))))
 
-
 (defthm invariant-env-trace-thm
   (implies (and (lenv-p el)
                 (renv-p er)
@@ -639,3 +638,92 @@
                             (s2 (car (cdr tr)))
                             (inf inf))))
           ))
+
+
+;; --------------------------------------------------
+(define lenv-hazard-free-step ((el lenv-p)
+                               (s1 gstate-t-p)
+                               (s2 gstate-t-p))
+  :returns (v booleanp)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         lenv-sigs)
+                                        ())))
+  (b* (((lenv el) (lenv-fix el))
+       ((gstate-t s1) (gstate-t-fix s1))
+       ((gstate-t s2) (gstate-t-fix s2))
+       ((unless (sigs-in-bool-table (lenv-sigs el) s1.statev)) nil)
+       ((unless (sigs-in-bool-table (lenv-sigs el) s2.statev)) nil)
+       (ack-in-prev (state-get el.ack-in s1.statev))
+       (ack-in-next (state-get el.ack-in s2.statev))
+       (li-prev (state-get el.left-internal s1.statev))
+       (li-next (state-get el.left-internal s2.statev))
+       (req-out-prev (state-get el.req-out s1.statev)))
+    (and (implies (and (sig-value->value ack-in-prev)
+                       (sig-value->value li-prev)
+                       (<= (sig-value->time li-prev)
+                           (sig-value->time ack-in-prev)))
+                  (sig-value->value ack-in-next))
+         (implies (not (equal (sig-value->value li-prev)
+                              (sig-value->value req-out-prev)))
+                  (equal (sig-value->value li-prev)
+                         (sig-value->value li-next))))))
+
+(define renv-hazard-free-step ((er renv-p)
+                               (s1 gstate-t-p)
+                               (s2 gstate-t-p))
+  :returns (v booleanp)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         renv-sigs)
+                                        ())))
+  (b* (((renv er) (renv-fix er))
+       ((gstate-t s1) (gstate-t-fix s1))
+       ((gstate-t s2) (gstate-t-fix s2))
+       ((unless (sigs-in-bool-table (renv-sigs er) s1.statev)) nil)
+       ((unless (sigs-in-bool-table (renv-sigs er) s2.statev)) nil)
+       (req-in-prev (state-get er.req-in s1.statev))
+       (req-in-next (state-get er.req-in s2.statev))
+       (ri-prev (state-get er.right-internal s1.statev))
+       (ri-next (state-get er.right-internal s2.statev))
+       (ack-out-prev (state-get er.ack-out s1.statev)))
+    (and (implies (and (sig-value->value req-in-prev)
+                       (not (sig-value->value ri-prev))
+                       (<= (sig-value->time ri-prev)
+                           (sig-value->time req-in-prev)))
+                  (sig-value->value req-in-next))
+         (implies (equal (sig-value->value ri-prev)
+                         (sig-value->value ack-out-prev))
+                  (equal (sig-value->value ri-prev)
+                         (sig-value->value ri-next))))))
+
+(defthm env-hanzard-free-thm
+  (implies (and (lenv-p el)
+                (renv-p er)
+                (env-connection el er)
+                (gstate-t-p s1)
+                (gstate-t-p s2)
+                (rationalp inf)
+                (lenv-step el s1 s2 inf)
+                (renv-step er s1 s2 inf)
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
+                (equal (lenv->delta el)
+                       (renv->delta er))
+                (invariant-env el er s1 inf)
+                (invariant-env el er s2 inf))
+           (and (lenv-hazard-free-step el s1 s2)
+                (renv-hazard-free-step er s1 s2)))
+  :hints (("Goal"
+           :smtlink
+           (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+                       sig-path-list sig-path sig sig-target
+                       asp-env-testbench asp-my-bench integer-list
+                       sig-value-list)
+                 :functions ((sigs-in-bool-table
+                              :formals ((sigs sig-path-listp)
+                                        (st gstate-p))
+                              :returns ((ok booleanp))
+                              :level 3))
+                 :smt-fname "x.py"
+                 :smt-dir "smtpy"
+                 :evilp t
+                 ))))

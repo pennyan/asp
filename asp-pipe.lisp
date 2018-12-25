@@ -161,3 +161,4 @@
                     (asp-stage-list-step (asp-pipeline->stages p) s1 s2 inf))
            :induct (invariant-asp-pipeline p s1 inf))
           ))
+
