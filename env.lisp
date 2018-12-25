@@ -87,9 +87,10 @@
                           :time (make-interval
                                  :lo (+ (sig-value->time li-prev)
                                         (* 2 (interval->lo delta)))
-                                 :hi inf)))
+                                 :hi (+ (sig-value->time li-prev)
+                                        (* 2 (interval->hi delta))
+                                        inf))))
                         (t (sig-target-from-signal li-prev))))
-       (- (cw "li-target = ~q0" li-target))
        ((unless (sig-check-transition li-prev li-next li-target
                                       prev.statet next.statet))
         nil)
@@ -99,7 +100,6 @@
                          (make-sig-target :value (sig-value->value li-prev)
                                           :time (interval-add (sig-max-time1 li-prev)
                                                               delta))))
-       (- (cw "req-out-target = ~q0" req-out-target))
        ((unless (sig-check-transition req-out-prev req-out-next
                                       req-out-target prev.statet
                                       next.statet))
@@ -159,9 +159,10 @@
                           :time (make-interval
                                  :lo (+ (sig-value->time ri-prev)
                                         (* 2 (interval->lo delta)))
-                                 :hi inf)))
+                                 :hi (+ (sig-value->time ri-prev)
+                                        (* 2 (interval->hi delta))
+                                        inf))))
                         (t (sig-target-from-signal ri-prev))))
-       (- (cw "ri-target = ~q0" ri-target))
        ((unless (sig-check-transition ri-prev ri-next ri-target prev.statet
                                       next.statet))
         nil)
@@ -171,7 +172,6 @@
                                             :time (interval-add (sig-max-time1 ri-prev)
                                                                 delta))
                          (sig-target-from-signal ack-out-prev)))
-       (- (cw "ack-out-target = ~q0" ack-out-target))
        ((unless (sig-check-transition ack-out-prev ack-out-next
                                       ack-out-target prev.statet
                                       next.statet))
@@ -742,3 +742,207 @@
                 (invariant-env el er s1 inf))
            (and (lenv-hazard-free-step el s1 s2)
                 (renv-hazard-free-step er s1 s2))))
+
+;; --------------------------------------------------
+
+(define li-excited ((el lenv-p)
+                    (s gstate-t-p)
+                    (inf rationalp))
+  :returns (v booleanp)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         lenv-sigs)
+                                        ())))
+  (b* (((lenv el) (lenv-fix el))
+       ((gstate-t s) s)
+       ((unless (sigs-in-bool-table (lenv-sigs el) s.statev)) nil)
+       (req (state-get el.req-out s.statev))
+       (ack (state-get el.ack-in s.statev))
+       (li (state-get el.left-internal s.statev))
+       ((sig-value req) req)
+       ((sig-value ack) ack)
+       ((sig-value li) li)
+       (tnext1 (max s.statet
+                    (+ (max req.time ack.time)
+                       (interval->lo el.delta))))
+       (snext1 (change-state s el.left-internal nil tnext1))
+       (tnext2 (max s.statet
+                    (+ li.time
+                       (* 2 (interval->lo el.delta)))))
+       (snext2 (change-state s el.left-internal t tnext2)))
+    (or (and req.value ack.value li.value
+             (lenv-step el s snext1 inf))
+        (and (not li.value)
+             (lenv-step el s snext2 inf)))))
+
+(define req-excited ((el lenv-p)
+                     (s gstate-t-p)
+                     (inf rationalp))
+  :returns (v booleanp)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         lenv-sigs)
+                                        ())))
+  (b* (((lenv el) (lenv-fix el))
+       ((gstate-t s) s)
+       ((unless (sigs-in-bool-table (lenv-sigs el) s.statev)) nil)
+       (req (state-get el.req-out s.statev))
+       (ack (state-get el.ack-in s.statev))
+       (li (state-get el.left-internal s.statev))
+       ((sig-value req) req)
+       ((sig-value li) li)
+       (tnext (max s.statet
+                   (+ li.time (interval->lo el.delta))))
+       (snext (change-state s el.req-out li.value tnext)))
+    (and (not (equal li.value req.value))
+         (lenv-step el s snext inf))))
+
+(define lenv-excited ((el lenv-p)
+                      (s gstate-t-p)
+                      (inf rationalp))
+  :returns (v booleanp)
+  (or (li-excited el s inf)
+      (req-excited el s inf)))
+
+(define ri-excited ((er renv-p)
+                    (s gstate-t-p)
+                    (inf rationalp))
+  :returns (v booleanp)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         renv-sigs)
+                                        ())))
+  (b* (((renv er) (renv-fix er))
+       ((gstate-t s) s)
+       ((unless (sigs-in-bool-table (renv-sigs er) s.statev)) nil)
+       (req (state-get er.req-in s.statev))
+       (ack (state-get er.ack-out s.statev))
+       (ri (state-get er.right-internal s.statev))
+       ((sig-value req) req)
+       ((sig-value ack) ack)
+       ((sig-value ri) ri)
+       (tnext1 (max s.statet
+                    (+ (max req.time ack.time)
+                       (interval->lo er.delta))))
+       (snext1 (change-state s er.right-internal t tnext1))
+       (tnext2 (max s.statet
+                    (+ ri.time
+                       (* 2 (interval->lo er.delta)))))
+       (snext2 (change-state s er.right-internal nil tnext2)))
+    (or (and req.value ack.value (not ri.value)
+             (renv-step er s snext1 inf))
+        (and ri.value
+             (renv-step er s snext2 inf)))))
+
+(define ack-excited ((er renv-p)
+                     (s gstate-t-p)
+                     (inf rationalp))
+  :returns (v booleanp)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         renv-sigs)
+                                        ())))
+  (b* (((renv er) (renv-fix er))
+       ((gstate-t s) s)
+       ((unless (sigs-in-bool-table (renv-sigs er) s.statev)) nil)
+       (ack (state-get er.ack-out s.statev))
+       (ri (state-get er.right-internal s.statev))
+       ((sig-value ack) ack)
+       ((sig-value ri) ri)
+       (tnext (max s.statet
+                   (+ ri.time (interval->lo er.delta))))
+       (snext (change-state s er.ack-out (not ri.value) tnext)))
+    (and (equal ri.value ack.value)
+         (renv-step er s snext inf))))
+
+(define renv-excited ((er renv-p)
+                      (s gstate-t-p)
+                      (inf rationalp))
+  :returns (v booleanp)
+  (or (ri-excited er s inf)
+      (ack-excited er s inf)))
+
+(define env-distinct ((el lenv-p)
+                      (er renv-p))
+  :returns (v booleanp)
+  (b* (((lenv el) (lenv-fix el))
+       ((renv er) (renv-fix er)))
+    (and (not (equal el.left-internal
+                     er.right-internal))
+         (not (equal el.left-internal
+                     el.req-out))
+         (not (equal el.left-internal
+                     el.ack-in))
+         (not (equal er.right-internal
+                     er.req-in))
+         (not (equal er.right-internal
+                     er.ack-out))
+         (not (equal el.ack-in
+                     el.req-out)))))
+
+;; (defthm env-deadlock-free
+;;   (implies (and (lenv-p el)
+;;                 (renv-p er)
+;;                 (env-connection el er)
+;;                 (gstate-t-p s1)
+;;                 (gstate-t-p s2)
+;;                 (rationalp inf)
+;;                 (valid-interval (lenv->delta el))
+;;                 (valid-interval (renv->delta er))
+;;                 (equal (lenv->delta el)
+;;                        (renv->delta er))
+;;                 (env-distinct el er)
+;;                 (invariant-env el er s1 inf)
+;;                 (invariant-env el er s2 inf)
+;;                 (>= (sig-value->time
+;;                      (state-get (lenv->left-internal el)
+;;                                 (gstate-t->statev s1)))
+;;                     0)
+;;                 (>= (sig-value->time
+;;                      (state-get (lenv->ack-in el)
+;;                                 (gstate-t->statev s1)))
+;;                     0)
+;;                 (>= (sig-value->time
+;;                      (state-get (lenv->req-out el)
+;;                                 (gstate-t->statev s1)))
+;;                     0)
+;;                 (>= (sig-value->time
+;;                      (state-get (renv->right-internal er)
+;;                                 (gstate-t->statev s1)))
+;;                     0)
+;;                 (<= (sig-value->time
+;;                      (state-get (lenv->left-internal el)
+;;                                 (gstate-t->statev s1)))
+;;                     (gstate-t->statet s1))
+;;                 (<= (sig-value->time
+;;                      (state-get (lenv->ack-in el)
+;;                                 (gstate-t->statev s1)))
+;;                     (gstate-t->statet s1))
+;;                 (<= (sig-value->time
+;;                      (state-get (lenv->req-out el)
+;;                                 (gstate-t->statev s1)))
+;;                     (gstate-t->statet s1))
+;;                 (<= (sig-value->time
+;;                      (state-get (renv->right-internal er)
+;;                                 (gstate-t->statev s1)))
+;;                     (gstate-t->statet s1))
+;;                 (<= (gstate-t->statet s1)
+;;                     ))
+;;            (or (ri-excited er s1 inf)
+;;                (ack-excited er s1 inf)
+;;                (li-excited el s1 inf)
+;;                (req-excited el s1 inf)
+;;                ;; (lenv-excited el s1 inf)
+;;                ;; (renv-excited er s1 inf)
+;;                ))
+;;   :hints (("Goal"
+;;            :smtlink
+;;            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+;;                        sig-path-list sig-path sig sig-target
+;;                        asp-env-testbench asp-my-bench integer-list
+;;                        sig-value-list)
+;;                  :functions ((sigs-in-bool-table
+;;                               :formals ((sigs sig-path-listp)
+;;                                         (st gstate-p))
+;;                               :returns ((ok booleanp))
+;;                               :level 4))
+;;                  :evilp t
+;;                  :smt-fname "x.py"
+;;                  :smt-dir "smtpy"
+;;                  ))))

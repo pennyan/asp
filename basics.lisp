@@ -182,7 +182,7 @@
   :returns (ok booleanp)
   (b* ((prev (sig-value-fix prev))
        (next (sig-value-fix next))
-       ((unless (< tprev tnext)) nil)
+       ((unless (<= tprev tnext)) nil)
        ((unless (<= 0 (sig-value->time prev))) nil)
        ((unless (<= (sig-value->time prev) (sig-value->time next))) nil)
        ((unless (<= (sig-value->time prev) tprev)) nil)
@@ -223,3 +223,15 @@
   `(cdr (smt::magic-fix
          'sig-path_sig-value
          (assoc-equal ,sig (gstate-fix ,st)))))
+
+(define change-state ((curr gstate-t-p)
+                      (path sig-path-p)
+                      (value booleanp)
+                      (time rationalp))
+  :returns (new-curr gstate-t-p)
+  (b* (((gstate-t curr) (gstate-t-fix curr))
+       (path (sig-path-fix path))
+       (sv (make-sig-value :value value :time time))
+       (new-statev (acons path sv (gstate-fix curr.statev))))
+    (make-gstate-t :statev new-statev
+                   :statet time)))
