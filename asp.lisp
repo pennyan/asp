@@ -94,14 +94,8 @@
 
 (define asp-connection ((a asp-stage-p) (el lenv-p) (er renv-p))
   :returns (ok booleanp)
-  (and (equal (asp-stage->go-full a)
-              (lenv->req-out el))
-       (equal (asp-stage->empty a)
-              (lenv->ack-in el))
-       (equal (asp-stage->go-empty a)
-              (renv->ack-out er))
-       (equal (asp-stage->full a)
-              (renv->req-in er))))
+  (and (env-connection el (asp-stage->left a))
+       (env-connection (asp-stage->right a) er)))
 
 ;; ========================================================================================
 ;;    The invariant
@@ -205,33 +199,34 @@
 
 ;; --------------------------------------------------
 
-;; (define asp-gate-hazard-free-step ((a asp-stage-p)
-;;                                    (s gstate-t-p))
-;;   :returns (v booleanp)
-;;   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
-;;                                          asp-sigs)
-;;                                         ())))
-;;   (b* (((asp-stage a) (asp-stage-fix a))
-;;        ((gstate-t s) (gstate-t-fix s))
-;;        ((unless (sigs-in-bool-table (asp-sigs a) s.statev)) nil)
-;;        (gf (state-get a.go-full s.statev))
-;;        (em (state-get a.empty s.statev))
-;;        (ge (state-get a.go-empty s.statev))
-;;        (fl (state-get a.full s.statev))
-;;        (fi (state-get a.full-internal s.statev)))
-;;     (implies (and (sig-value->value gf)
-;;                   (sig-value->value em)
-;;                   (sig-value->value ge)
-;;                   (sig-value->value fl))
-;;              (and (implies (sig-value->value fi)
-;;                            (< s.statet
-;;                               (+ (max (sig-value->time ge)
-;;                                       (sig-value->time fl)))))
-;;                   (implies (not (sig-value->value fi))
-;;                            (< s.statet
-;;                               (+ (max (sig-value->time gf)
-;;                                       (sig-value->time em))))))
-;;              )))
+(define asp-gate-hazard-free-step ((a asp-stage-p)
+                                   (s gstate-t-p))
+  :returns (v booleanp)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         asp-sigs)
+                                        ())))
+  (b* (((asp-stage a) (asp-stage-fix a))
+       ((gstate-t s) (gstate-t-fix s))
+       ((unless (sigs-in-bool-table (asp-sigs a) s.statev)) nil)
+       (gf (state-get a.go-full s.statev))
+       (em (state-get a.empty s.statev))
+       (ge (state-get a.go-empty s.statev))
+       (fl (state-get a.full s.statev))
+       (fi (state-get a.full-internal s.statev)))
+    (implies (and (sig-value->value gf)
+                  (sig-value->value em)
+                  (sig-value->value ge)
+                  (sig-value->value fl))
+             (and (implies (sig-value->value fi)
+                           (< s.statet
+                              (+ (max (sig-value->time ge)
+                                      (sig-value->time fl))
+                                 (interval->lo a.delta))))
+                  (implies (not (sig-value->value fi))
+                           (< s.statet
+                              (+ (max (sig-value->time gf)
+                                      (sig-value->time em))
+                                 (interval->lo a.delta))))))))
 
 (define asp-stage-hazard-free-step ((a asp-stage-p)
                                     (s1 gstate-t-p)
@@ -240,9 +235,8 @@
   (b* (((asp-stage a) (asp-stage-fix a)))
     (and (renv-hazard-free-step a.left s1 s2)
          (lenv-hazard-free-step a.right s1 s2)
-         ;; (asp-gate-hazard-free-step a s1)
-         ;; (asp-gate-hazard-free-step a s2)
-         )))
+         (asp-gate-hazard-free-step a s1)
+         (asp-gate-hazard-free-step a s2))))
 
 (defthm asp-stage-hazard-free-thm-lemma
   (implies (and (asp-stage-p a)
@@ -309,3 +303,4 @@
            (and (lenv-hazard-free-step el s1 s2)
                 (renv-hazard-free-step er s1 s2)
                 (asp-stage-hazard-free-step a s1 s2))))
+
