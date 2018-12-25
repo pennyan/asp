@@ -695,7 +695,7 @@
                   (equal (sig-value->value ri-prev)
                          (sig-value->value ri-next))))))
 
-(defthm env-hanzard-free-thm
+(defthm env-hazard-free-thm-lemma
   (implies (and (lenv-p el)
                 (renv-p er)
                 (env-connection el er)
@@ -723,7 +723,22 @@
                                         (st gstate-p))
                               :returns ((ok booleanp))
                               :level 3))
-                 :smt-fname "x.py"
-                 :smt-dir "smtpy"
                  :evilp t
                  ))))
+
+(defthm env-hazard-free-thm
+  (implies (and (lenv-p el)
+                (renv-p er)
+                (env-connection el er)
+                (gstate-t-p s1)
+                (gstate-t-p s2)
+                (rationalp inf)
+                (lenv-step el s1 s2 inf)
+                (renv-step er s1 s2 inf)
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
+                (equal (lenv->delta el)
+                       (renv->delta er))
+                (invariant-env el er s1 inf))
+           (and (lenv-hazard-free-step el s1 s2)
+                (renv-hazard-free-step er s1 s2))))

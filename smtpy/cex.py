@@ -18,11 +18,10 @@ def sig_line(foo, prev_v, nxt_v):
   return(foo_line)
 
 def cex_str(m):  # m is a model for a counter-example
-  tr = m[x.tr]
-  prev = x.gtrace.car(tr)
+  prev = m[x.s1]
   prev_t = x.gstate_sub_t.statet(prev)
   prev_v = x.gstate_sub_t.statev(prev)
-  nxt = x.gtrace.car(x.gtrace.cdr(tr))
+  nxt = m[x.s2]
   nxt_t = x.gstate_sub_t.statet(nxt)
   nxt_v = x.gstate_sub_t.statev(nxt)
   time_line = "%20s %20s -> %20s" % ('time', z3numstr(prev_t), z3numstr(nxt_t))
@@ -50,11 +49,10 @@ def gen_sigvals(sig, curr):
   return (value, time)
 
 def acl2(m):
-  tr = m[x.tr]
-  prev = x.gtrace.car(tr)
+  prev = m[x.s1]
   prev_t = x.gstate_sub_t.statet(prev)
   prev_v = x.gstate_sub_t.statev(prev)
-  nxt = x.gtrace.car(x.gtrace.cdr(tr))
+  prev = m[x.s2]
   nxt_t = x.gstate_sub_t.statet(nxt)
   nxt_v = x.gstate_sub_t.statev(nxt)
   sigs = [ x.asp_sub_stage.go_sub_full(m[x.a]),
@@ -105,7 +103,8 @@ def acl2m(m):
   a = m[x.a]
   el = m[x.el]
   er = m[x.er]
-  tr = m[x.tr]
+  s1 = m[x.s1]
+  s2 = m[x.s2]
   inf = m[x.inf]
   sigs = [ x.lenv.left_sub_internal(el),
            x.asp_sub_stage.go_sub_full(a),
@@ -118,7 +117,8 @@ def acl2m(m):
           "(list" + "(cons 'asp " + asp_stage_to_acl2(a) + ")     \n"
                   + "(cons 'lenv " + lenv_to_acl2(el) + ")     \n"
                   + "(cons 'renv " + renv_to_acl2(er) + ")     \n"
-                  + "(cons 'tr " + gtrace_to_acl2(tr, m, sigs) + ")\n"
+                  + "(cons 's1 " + gstate_t_to_acl2(s1, m, sigs) + ")\n"
+                  + "(cons 's2 " + gstate_t_to_acl2(s2, m, sigs) + ")\n"
                   + "(cons 'inf " + rational_to_acl2(inf) + ")))\n")
 
 

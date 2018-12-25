@@ -46,9 +46,8 @@
   (b* ((asp (cdr (assoc 'asp cex)))
        (lenv (cdr (assoc 'lenv cex)))
        (renv (cdr (assoc 'renv cex)))
-       (tr (cdr (assoc 'tr cex)))
-       (prev (car tr))
-       (next (cadr tr))
+       (prev (cdr (assoc 's1 cex)))
+       (next (cdr (assoc 's2 cex)))
        (inf (cdr (assoc 'inf cex)))
        (prec 8)
        (tprev (gstate-t->statet prev))
@@ -85,13 +84,6 @@
        (- (show-sig ge-path nextv "go-empty" prec))
        (- (show-sig ri-path nextv "right-internal" prec))
        (- (cw "-----------------------------------------------------~%"))
-       (lstep  (lenv-step lenv prev next inf))
-       (lvalid (lenv-valid lenv tr inf))
-       (rstep  (renv-step renv prev next inf))
-       (rvalid (renv-valid renv tr inf))
-       (- (cw "lstep = ~x0, lvalid = ~x1, rstep=~x2, rvalid=~x3~%"
-              lstep lvalid rstep rvalid))
-       (- (cw "-----------------------------------------------------~%"))
        (- (cw "Testing invariant on next state~%"))
        (li (cdr (assoc-equal li-path nextv)))
        (gf (cdr (assoc-equal gf-path nextv)))
@@ -114,7 +106,7 @@
                          :ri ri
                          :delta delta
                          :inf inf))
-       (inv (invariant-asp-stage asp lenv renv tnext nextv inf))
+       (inv (invariant-asp-stage asp lenv renv next inf))
        (- (cw "~%Testing the whole invariant on next state: ~q0"
               (if inv 'passed 'failed)))
        (- (cw "----------------Left half---------------------~%"))
@@ -173,5 +165,15 @@
               (interval-to-string (external-idle-time  rb) prec)))
        (- (cw "rx_ready = ~s0~%"
               (interval-to-string (external-next-ready-time  rb) prec)))
+       (- (cw "-----------------------------------------------------~%"))
+       (lstep  (lenv-step lenv prev next inf))
+       (rstep  (renv-step renv prev next inf))
+       (- (cw "lstep = ~x0, rstep=~x1~%"
+              lstep rstep))
+       (- (cw "-----------------------------------------------------~%"))
+       (lenv-hf (lenv-hazard-free-step (asp-stage->right asp) prev next))
+       (renv-hf (renv-hazard-free-step (asp-stage->left asp) prev next))
+       (- (cw "lhf = ~x0, rhf=~x1~%"
+              lenv-hf renv-hf))
        )
     nil))
