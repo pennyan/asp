@@ -12,22 +12,16 @@ JOBS ?= 3
 
 all: top
 
-top: env asp test refine pipe
+top: test refine ring
 
-pipe:
-	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) asp-pipe
+ring:
+	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) asp-ring
 
 refine:
 	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) refinement
 
 test:
 	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) rational2str
-
-env:
-	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) env
-
-asp:
-	$(BUILD_DIR)/cert.pl -j $(JOBS) -a $(ACL2) -b $(ACL2_BOOKS) asp
 
 clean:
 	$(BUILD_DIR)/clean.pl

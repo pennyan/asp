@@ -105,13 +105,26 @@
               (pretty-print inv-interact-env)))
        (lb (leftbench testbench))
        (rb (rightbench testbench))
-       (- (cw "li_idle = ~s0~%"  (interval-to-string (internal-idle-time  lb) prec)))
-       (- (cw "li_ready = ~s0~%" (interval-to-string (internal-next-ready-time  lb) prec)))
-       (- (cw "lx_idle = ~s0~%"  (interval-to-string (external-idle-time  lb) prec)))
-       (- (cw "lx_ready = ~s0~%" (interval-to-string (external-next-ready-time  lb) prec)))
-       (- (cw "ri_idle = ~s0~%"  (interval-to-string (internal-idle-time  rb) prec)))
-       (- (cw "ri_ready = ~s0~%" (interval-to-string (internal-next-ready-time  rb) prec)))
-       (- (cw "rx_idle = ~s0~%"  (interval-to-string (external-idle-time  rb) prec)))
-       (- (cw "rx_ready = ~s0~%" (interval-to-string (external-next-ready-time  rb) prec)))
+       (- (cw "li_idle = ~s0~%"
+              (interval-to-string (internal-idle-time  lb) prec)))
+       (- (cw "li_ready = ~s0~%"
+              (interval-to-string (internal-next-ready-time  lb) prec)))
+       (- (cw "lx_idle = ~s0~%"
+              (interval-to-string (external-idle-time  lb) prec)))
+       (- (cw "lx_ready = ~s0~%"
+              (interval-to-string (external-next-ready-time  lb) prec)))
+       (- (cw "ri_idle = ~s0~%"
+              (interval-to-string (internal-idle-time  rb) prec)))
+       (- (cw "ri_ready = ~s0~%"
+              (interval-to-string (internal-next-ready-time  rb) prec)))
+       (- (cw "rx_idle = ~s0~%"
+              (interval-to-string (external-idle-time  rb) prec)))
+       (- (cw "rx_ready = ~s0~%"
+              (interval-to-string (external-next-ready-time rb) prec)))
+       (- (cw "-----------------------------------------------------~%"))
+       (- (cw "li-excited: ~q0" (li-excited lenv prev inf)))
+       (- (cw "req-excited: ~q0" (req-excited lenv prev inf)))
+       (- (cw "ri-excited: ~q0" (ri-excited renv prev inf)))
+       (- (cw "ack-excited: ~q0" (ack-excited renv prev inf)))
        )
     nil))
