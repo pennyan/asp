@@ -280,6 +280,12 @@
                            :delta delta
                            :inf inf)))
 
+(define basic-timing ((curr sig-value-p)
+                      (tcurr rationalp))
+  :returns (ok booleanp)
+  (b* ((curr (sig-value-fix curr)))
+    (and (<= 0 (sig-value->time curr))
+         (<= (sig-value->time curr) tcurr))))
 
 ;; invariant-env-failed -- check that signal values and times are sane
 ;;   for a single asp* 'environment' element (i.e. lenv or renv).
@@ -304,6 +310,13 @@
   (with-asp-my-bench b
                      ((myxt (max mx.time yx.time))
                       (fail-acc (integer-list-fix nil))
+                      ;; basic timing constraints
+                      (fail-acc
+                       (if (and (basic-timing mx tcurr)
+                                (basic-timing mi tcurr)
+                                (basic-timing yx tcurr))
+                           fail-acc
+                         (cons 1 (integer-list-fix fail-acc))))
                       ;; Constraints for mi:
                       ;;   If (and mx yx ready),
                       ;;   then there is a pending action to set mi to idle
@@ -311,7 +324,7 @@
                        (if (implies (and mx.value yx.value ready)
                                     (< tcurr (+ myxt delta.hi)))
                            fail-acc
-                         (cons 1 (integer-list-fix fail-acc))))
+                         (cons 2 (integer-list-fix fail-acc))))
                       ;;   If (and mx yx (not ready)),
                       ;;   then the transition of mi to idle was enabled by the
                       ;;   current values of mx and yx.
@@ -319,17 +332,24 @@
                       (fail-acc
                        (if (implies (and (not ready) mx.value yx.value)
                                     (and (<= (+ myxt delta.lo) mi.time)
-                                         (<  mi.time (+ myxt delta.hi))))
+                                         (<  mi.time (+ myxt delta.hi))
+                                         ;; tcurr should be after mi.time since
+                                         ;; ready has already changed to not ready
+                                         (<= mi.time tcurr)))
                            fail-acc
-                         (cons 2 (integer-list-fix fail-acc))))
+                         (cons 3 (integer-list-fix fail-acc))))
                       ;;   If (and mx (not ready)),
                       ;;   then the transition of mi to idle was enabled by the
                       ;;   current value of mx.
                       ;;   Thus mi.time >= mx.time + delta.lo
-                      (fail-acc (if (implies (and (not ready) mx.value)
-                                             (<= (+ mx.time delta.lo) mi.time))
-                                    fail-acc
-                                  (cons 3 (integer-list-fix fail-acc))))
+                      (fail-acc
+                       (if (implies (and (not ready) mx.value)
+                                    (and (<= (+ mx.time delta.lo) mi.time)
+                                         ;; tcurr should be after mi.time since
+                                         ;; ready has already changed to not ready
+                                         (<= mi.time tcurr)))
+                           fail-acc
+                         (cons 4 (integer-list-fix fail-acc))))
                       ;;   If (and (not mx) ready)
                       ;;   mx went low less than delta.hi after ready went low.
                       ;;   ready went high at least 2*delta.lo after ready went
@@ -350,7 +370,10 @@
                       (fail-acc
                        (if (implies (equal mx.value ready)
                                     (and (<= (+ mi.time delta.lo) mx.time)
-                                         (<  mx.time (+ mi.time delta.hi))))
+                                         (<  mx.time (+ mi.time delta.hi))
+                                         ;; tcurr should be after mi.time since
+                                         ;; ready has already changed to not ready
+                                         (<= mx.time tcurr)))
                            fail-acc
                          (cons 5 (integer-list-fix fail-acc))))
                       (fail-acc
@@ -358,7 +381,15 @@
                                     (and (< mx.time mi.time)
                                          (< tcurr (+ mi.time delta.hi))))
                            fail-acc
-                         (cons 6 (integer-list-fix fail-acc)))))
+                         (cons 6 (integer-list-fix fail-acc))))
+                      ;; added invariant for proving the deadlock-free theorem
+                      ;; if ready isn't set yet, current time can't have
+                      ;; reached delta.hi
+                      (fail-acc
+                       (if (implies (not ready)
+                                    (< tcurr (+ mi.time (* 2 delta.hi) inf)))
+                           fail-acc
+                         (cons 7 (integer-list-fix fail-acc)))))
                      fail-acc))
 
 (define invariant-lenv-failed ((b asp-env-testbench-p)
@@ -394,7 +425,7 @@
 ;; sufficient to ensure correct operation.
 
 ;; internal-idle-time: time interval for when my-internal is idle.  If
-;;   my-internal is already idle, just make an intervale where both bounds
+;;   my-internal is already idle, just make an interval where both bounds
 ;;   are mi.time.
 (define internal-idle-time ((b asp-my-bench-p))
   :returns(next-time interval-p)
@@ -606,6 +637,8 @@
                               :returns ((ok booleanp))
                               :level 3))
                  :evilp t
+                 :smt-fname "x.py"
+                 :smt-dir "smtpy"
                  ))))
 
 (defthm invariant-env-trace-thm
@@ -746,13 +779,13 @@
                 (renv-hazard-free-step er s1 s2))))
 
 ;; --------------------------------------------------
-
 (define li-excited ((el lenv-p)
                     (s gstate-t-p)
                     (inf rationalp))
   :returns (v booleanp)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
-                                         lenv-sigs)
+                                         lenv-sigs
+                                         change-state)
                                         ())))
   (b* (((lenv el) (lenv-fix el))
        ((gstate-t s) s)
@@ -878,73 +911,33 @@
          (not (equal el.ack-in
                      el.req-out)))))
 
-;; (defthm env-deadlock-free
-;;   (implies (and (lenv-p el)
-;;                 (renv-p er)
-;;                 (env-connection el er)
-;;                 (gstate-t-p s1)
-;;                 (gstate-t-p s2)
-;;                 (rationalp inf)
-;;                 (valid-interval (lenv->delta el))
-;;                 (valid-interval (renv->delta er))
-;;                 (equal (lenv->delta el)
-;;                        (renv->delta er))
-;;                 (env-distinct el er)
-;;                 (invariant-env el er s1 inf)
-;;                 (invariant-env el er s2 inf)
-;;                 (>= (sig-value->time
-;;                      (state-get (lenv->left-internal el)
-;;                                 (gstate-t->statev s1)))
-;;                     0)
-;;                 (>= (sig-value->time
-;;                      (state-get (lenv->ack-in el)
-;;                                 (gstate-t->statev s1)))
-;;                     0)
-;;                 (>= (sig-value->time
-;;                      (state-get (lenv->req-out el)
-;;                                 (gstate-t->statev s1)))
-;;                     0)
-;;                 (>= (sig-value->time
-;;                      (state-get (renv->right-internal er)
-;;                                 (gstate-t->statev s1)))
-;;                     0)
-;;                 (<= (sig-value->time
-;;                      (state-get (lenv->left-internal el)
-;;                                 (gstate-t->statev s1)))
-;;                     (gstate-t->statet s1))
-;;                 (<= (sig-value->time
-;;                      (state-get (lenv->ack-in el)
-;;                                 (gstate-t->statev s1)))
-;;                     (gstate-t->statet s1))
-;;                 (<= (sig-value->time
-;;                      (state-get (lenv->req-out el)
-;;                                 (gstate-t->statev s1)))
-;;                     (gstate-t->statet s1))
-;;                 (<= (sig-value->time
-;;                      (state-get (renv->right-internal er)
-;;                                 (gstate-t->statev s1)))
-;;                     (gstate-t->statet s1))
-;;                 (<= (gstate-t->statet s1)
-;;                     ))
-;;            (or (ri-excited er s1 inf)
-;;                (ack-excited er s1 inf)
-;;                (li-excited el s1 inf)
-;;                (req-excited el s1 inf)
-;;                ;; (lenv-excited el s1 inf)
-;;                ;; (renv-excited er s1 inf)
-;;                ))
-;;   :hints (("Goal"
-;;            :smtlink
-;;            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
-;;                        sig-path-list sig-path sig sig-target
-;;                        asp-env-testbench asp-my-bench integer-list
-;;                        sig-value-list)
-;;                  :functions ((sigs-in-bool-table
-;;                               :formals ((sigs sig-path-listp)
-;;                                         (st gstate-p))
-;;                               :returns ((ok booleanp))
-;;                               :level 4))
-;;                  :evilp t
-;;                  :smt-fname "x.py"
-;;                  :smt-dir "smtpy"
-;;                  ))))
+(defthm env-deadlock-free
+  (implies (and (lenv-p el)
+                (renv-p er)
+                (env-connection el er)
+                (gstate-t-p s1)
+                (gstate-t-p s2)
+                (rationalp inf)
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
+                (equal (lenv->delta el)
+                       (renv->delta er))
+                (env-distinct el er)
+                (invariant-env el er s1 inf)
+                (invariant-env el er s2 inf))
+           (or (lenv-excited el s1 inf)
+               (renv-excited er s1 inf)
+               ))
+  :hints (("Goal"
+           :smtlink
+           (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+                       sig-path-list sig-path sig sig-target
+                       asp-env-testbench asp-my-bench integer-list
+                       sig-value-list)
+                 :functions ((sigs-in-bool-table
+                              :formals ((sigs sig-path-listp)
+                                        (st gstate-p))
+                              :returns ((ok booleanp))
+                              :level 4))
+                 :evilp t
+                 ))))
