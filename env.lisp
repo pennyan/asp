@@ -779,17 +779,20 @@
                 (renv-hazard-free-step er s1 s2))))
 
 ;; --------------------------------------------------
-(define li-excited ((el lenv-p)
-                    (s gstate-t-p)
-                    (inf rationalp))
-  :returns (v booleanp)
+(defoption maybe-gstate-t gstate-t-p)
+
+(define li-step-oracle ((el lenv-p)
+                        (s gstate-t-p)
+                        (inf rationalp))
+  :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          lenv-sigs
                                          change-state)
                                         ())))
   (b* (((lenv el) (lenv-fix el))
        ((gstate-t s) s)
-       ((unless (sigs-in-bool-table (lenv-sigs el) s.statev)) nil)
+       ((unless (sigs-in-bool-table (lenv-sigs el) s.statev))
+        (maybe-gstate-t-fix nil))
        (req (state-get el.req-out s.statev))
        (ack (state-get el.ack-in s.statev))
        (li (state-get el.left-internal s.statev))
@@ -804,21 +807,21 @@
                     (+ li.time
                        (* 2 (interval->lo el.delta)))))
        (snext2 (change-state s el.left-internal t tnext2)))
-    (or (and req.value ack.value li.value
-             (lenv-step el s snext1 inf))
-        (and (not li.value)
-             (lenv-step el s snext2 inf)))))
+    (cond ((and req.value ack.value li.value) (maybe-gstate-t-some snext1))
+          ((not li.value) (maybe-gstate-t-some snext2))
+          (t (maybe-gstate-t-fix nil)))))
 
-(define req-excited ((el lenv-p)
-                     (s gstate-t-p)
-                     (inf rationalp))
-  :returns (v booleanp)
+(define req-step-oracle ((el lenv-p)
+                         (s gstate-t-p)
+                         (inf rationalp))
+  :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          lenv-sigs)
                                         ())))
   (b* (((lenv el) (lenv-fix el))
        ((gstate-t s) s)
-       ((unless (sigs-in-bool-table (lenv-sigs el) s.statev)) nil)
+       ((unless (sigs-in-bool-table (lenv-sigs el) s.statev))
+        (maybe-gstate-t-fix nil))
        (req (state-get el.req-out s.statev))
        (ack (state-get el.ack-in s.statev))
        (li (state-get el.left-internal s.statev))
@@ -827,26 +830,37 @@
        (tnext (max s.statet
                    (+ li.time (interval->lo el.delta))))
        (snext (change-state s el.req-out li.value tnext)))
-    (and (not (equal li.value req.value))
-         (lenv-step el s snext inf))))
+    (if (not (equal li.value req.value))
+        (maybe-gstate-t-some snext)
+      (maybe-gstate-t-fix nil))))
 
-(define lenv-excited ((el lenv-p)
-                      (s gstate-t-p)
-                      (inf rationalp))
-  :returns (v booleanp)
-  (or (li-excited el s inf)
-      (req-excited el s inf)))
+(define lenv-step-oracle ((el lenv-p)
+                          (s gstate-t-p)
+                          (inf rationalp))
+  :returns (snext maybe-gstate-t-p)
+  (b* ((li-snext (li-step-oracle el s inf))
+       ((if (equal li-snext (maybe-gstate-t-fix nil)))
+        (req-step-oracle el s inf))
+       (req-snext (req-step-oracle el s inf))
+       ((if (equal req-snext (maybe-gstate-t-fix nil)))
+        li-snext)
+       (t-li (gstate-t->statet (maybe-gstate-t-some->val li-snext)))
+       (t-req (gstate-t->statet (maybe-gstate-t-some->val req-snext))))
+    (if (<= t-li t-req)
+        li-snext
+      req-snext)))
 
-(define ri-excited ((er renv-p)
-                    (s gstate-t-p)
-                    (inf rationalp))
-  :returns (v booleanp)
+(define ri-step-oracle ((er renv-p)
+                        (s gstate-t-p)
+                        (inf rationalp))
+  :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          renv-sigs)
                                         ())))
   (b* (((renv er) (renv-fix er))
        ((gstate-t s) s)
-       ((unless (sigs-in-bool-table (renv-sigs er) s.statev)) nil)
+       ((unless (sigs-in-bool-table (renv-sigs er) s.statev))
+        (maybe-gstate-t-fix nil))
        (req (state-get er.req-in s.statev))
        (ack (state-get er.ack-out s.statev))
        (ri (state-get er.right-internal s.statev))
@@ -861,21 +875,22 @@
                     (+ ri.time
                        (* 2 (interval->lo er.delta)))))
        (snext2 (change-state s er.right-internal nil tnext2)))
-    (or (and req.value ack.value (not ri.value)
-             (renv-step er s snext1 inf))
-        (and ri.value
-             (renv-step er s snext2 inf)))))
+    (cond ((and req.value ack.value (not ri.value))
+           (maybe-gstate-t-some snext1))
+          (ri.value (maybe-gstate-t-some snext2))
+          (t (maybe-gstate-t-fix nil)))))
 
-(define ack-excited ((er renv-p)
-                     (s gstate-t-p)
-                     (inf rationalp))
-  :returns (v booleanp)
+(define ack-step-oracle ((er renv-p)
+                         (s gstate-t-p)
+                         (inf rationalp))
+  :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          renv-sigs)
                                         ())))
   (b* (((renv er) (renv-fix er))
        ((gstate-t s) s)
-       ((unless (sigs-in-bool-table (renv-sigs er) s.statev)) nil)
+       ((unless (sigs-in-bool-table (renv-sigs er) s.statev))
+        (maybe-gstate-t-fix nil))
        (ack (state-get er.ack-out s.statev))
        (ri (state-get er.right-internal s.statev))
        ((sig-value ack) ack)
@@ -883,15 +898,41 @@
        (tnext (max s.statet
                    (+ ri.time (interval->lo er.delta))))
        (snext (change-state s er.ack-out (not ri.value) tnext)))
-    (and (equal ri.value ack.value)
-         (renv-step er s snext inf))))
+    (if (equal ri.value ack.value)
+        (maybe-gstate-t-some snext)
+      (maybe-gstate-t-fix nil))))
 
-(define renv-excited ((er renv-p)
-                      (s gstate-t-p)
-                      (inf rationalp))
-  :returns (v booleanp)
-  (or (ri-excited er s inf)
-      (ack-excited er s inf)))
+(define renv-step-oracle ((er renv-p)
+                          (s gstate-t-p)
+                          (inf rationalp))
+  :returns (snext maybe-gstate-t-p)
+  (b* ((ri-snext (ri-step-oracle er s inf))
+       ((if (equal ri-snext (maybe-gstate-t-fix nil)))
+        (ack-step-oracle er s inf))
+       (ack-snext (ack-step-oracle er s inf))
+       ((if (equal ack-snext (maybe-gstate-t-fix nil)))
+        ri-snext)
+       (t-ri (gstate-t->statet (maybe-gstate-t-some->val ri-snext)))
+       (t-ack (gstate-t->statet (maybe-gstate-t-some->val ack-snext))))
+    (if (<= t-ri t-ack)
+        ri-snext
+      ack-snext)))
+
+(define renv-lenv-step-oracle ((el lenv-p)
+                               (er renv-p)
+                               (s gstate-t-p)
+                               (inf rationalp))
+  :returns (snext maybe-gstate-t-p)
+  (b* ((el-snext (lenv-step-oracle el s inf))
+       ((if (equal el-snext (maybe-gstate-t-fix nil)))
+        (renv-step-oracle er s inf))
+       (er-snext (renv-step-oracle er s inf))
+       ((if (equal er-snext (maybe-gstate-t-fix nil))) el-snext)
+       (t-el (gstate-t->statet (maybe-gstate-t-some->val el-snext)))
+       (t-er (gstate-t->statet (maybe-gstate-t-some->val er-snext))))
+    (if (<= t-el t-er)
+        el-snext
+      er-snext)))
 
 (define env-distinct ((el lenv-p)
                       (er renv-p))
@@ -909,14 +950,15 @@
          (not (equal er.right-internal
                      er.ack-out))
          (not (equal el.ack-in
-                     el.req-out)))))
+                     el.req-out)))
+    ))
 
 (defthm env-deadlock-free
   (implies (and (lenv-p el)
                 (renv-p er)
                 (env-connection el er)
                 (gstate-t-p s1)
-                (gstate-t-p s2)
+                ;; (gstate-t-p s2)
                 (rationalp inf)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
@@ -924,20 +966,30 @@
                        (renv->delta er))
                 (env-distinct el er)
                 (invariant-env el er s1 inf)
-                (invariant-env el er s2 inf))
-           (or (lenv-excited el s1 inf)
-               (renv-excited er s1 inf)
-               ))
+                ;; (invariant-env el er s2 inf)
+                )
+           (and (not (equal (renv-lenv-step-oracle el er s1 inf)
+                            (maybe-gstate-t-fix nil)))
+                (lenv-step el s1
+                           (maybe-gstate-t-some->val
+                            (renv-lenv-step-oracle el er s1 inf))
+                           inf)
+                (renv-step er s1
+                           (maybe-gstate-t-some->val
+                            (renv-lenv-step-oracle el er s1 inf))
+                           inf)))
   :hints (("Goal"
            :smtlink
            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
                        sig-path-list sig-path sig sig-target
                        asp-env-testbench asp-my-bench integer-list
-                       sig-value-list)
+                       sig-value-list maybe-gstate-t)
                  :functions ((sigs-in-bool-table
                               :formals ((sigs sig-path-listp)
                                         (st gstate-p))
                               :returns ((ok booleanp))
                               :level 4))
                  :evilp t
+                 :smt-fname "x.py"
+                 :smt-dir "smtpy"
                  ))))

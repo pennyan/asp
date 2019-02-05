@@ -122,9 +122,22 @@
        (- (cw "rx_ready = ~s0~%"
               (interval-to-string (external-next-ready-time rb) prec)))
        (- (cw "-----------------------------------------------------~%"))
-       (- (cw "li-excited: ~q0" (li-excited lenv prev inf)))
-       (- (cw "req-excited: ~q0" (req-excited lenv prev inf)))
-       (- (cw "ri-excited: ~q0" (ri-excited renv prev inf)))
-       (- (cw "ack-excited: ~q0" (ack-excited renv prev inf)))
+       (- (cw "li-step-oracle: ~q0" (li-step-oracle lenv prev inf)))
+       (- (cw "req-step-oracle: ~q0" (req-step-oracle lenv prev inf)))
+       (- (cw "ri-step-oracle: ~q0" (ri-step-oracle renv prev inf)))
+       (- (cw "ack-step-oracle: ~q0" (ack-step-oracle renv prev inf)))
+       (- (cw "lenv-step-oracle: ~q0" (lenv-step-oracle lenv prev inf)))
+       (- (cw "renv-step-oracle: ~q0" (renv-step-oracle renv prev inf)))
+       (- (cw "prev: ~q0" prev))
+       (- (cw "renv-lenv-step-oracle: ~q0" (renv-lenv-step-oracle lenv renv
+                                                                  prev inf)))
+       (- (cw "lenv-valid: ~q0" (lenv-step lenv prev
+                                           (maybe-gstate-t-some->val
+                                            (renv-lenv-step-oracle lenv renv prev inf))
+                                           inf)))
+       (- (cw "renv-valid: ~q0" (renv-step renv prev
+                                           (maybe-gstate-t-some->val
+                                            (renv-lenv-step-oracle lenv renv prev inf))
+                                           inf)))
        )
     nil))
