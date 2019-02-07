@@ -576,40 +576,6 @@
     (and (invariant-env el er first inf)
          (invariant-env-trace el er rest inf))))
 
-(std::must-fail
- (defthm invariant-check-contradiction
-   (not (and (lenv-p el)
-             (renv-p er)
-             (env-connection el er)
-             (gtrace-p tr)
-             (rationalp inf)
-             (lenv-step el (car (gtrace-fix tr))
-                        (car (gtrace-fix (cdr (gtrace-fix tr))))
-                        inf)
-             (renv-step er (car (gtrace-fix tr))
-                        (car (gtrace-fix (cdr (gtrace-fix tr))))
-                        inf)
-             (valid-interval (lenv->delta el))
-             (valid-interval (renv->delta er))
-             (equal (lenv->delta el)
-                    (renv->delta er))
-             (consp (gtrace-fix tr))
-             (consp (gtrace-fix (cdr (gtrace-fix tr))))
-             (invariant-env el er (car (gtrace-fix tr)) inf)))
-   :hints (("Goal"
-            :smtlink
-            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
-                        sig-path-list sig-path sig sig-target
-                        asp-env-testbench asp-my-bench integer-list
-                        sig-value-list)
-                  :functions ((sigs-in-bool-table
-                               :formals ((sigs sig-path-listp)
-                                         (st gstate-p))
-                               :returns ((ok booleanp))
-                               :level 3))
-                  ))))
- )
-
 (defthm invariant-env-step-thm
   (implies (and (lenv-p el)
                 (renv-p er)
@@ -1007,6 +973,36 @@
                               :returns ((ok booleanp))
                               :level 4))
                  :evilp t
-                 :smt-fname "x.py"
-                 :smt-dir "smtpy"
                  ))))
+
+(acl2::must-fail
+(defthm invariant-check-contradiction
+  (not (and (lenv-p el)
+            (renv-p er)
+            (env-connection el er)
+            (gstate-t-p s1)
+            (gstate-t-p s2)
+            (rationalp inf)
+            (lenv-step el s1 s2 inf)
+            (renv-step er s1 s2 inf)
+            (valid-interval (lenv->delta el))
+            (valid-interval (renv->delta er))
+            (equal (lenv->delta el)
+                   (renv->delta er))
+            (env-distinct el er)
+            (invariant-env el er s1 inf)))
+   :hints (("Goal"
+            :smtlink
+            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+                        sig-path-list sig-path sig sig-target
+                        asp-env-testbench asp-my-bench integer-list
+                        sig-value-list)
+                  :functions ((sigs-in-bool-table
+                               :formals ((sigs sig-path-listp)
+                                         (st gstate-p))
+                               :returns ((ok booleanp))
+                               :level 3))
+                  :smt-fname "x.py"
+                  :smt-dir "smtpy"
+                  ))))
+)
