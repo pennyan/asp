@@ -102,6 +102,8 @@
                    :hi (max (interval->hi itv1)
                             (interval->hi itv2)))))
 
+;; ----------------------------------------------------
+(defoption maybe-gstate-t gstate-t-p)
 
 ;; =====================================================
 ;; some handy functions for signals

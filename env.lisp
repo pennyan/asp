@@ -779,8 +779,6 @@
                 (renv-hazard-free-step er s1 s2))))
 
 ;; --------------------------------------------------
-(defoption maybe-gstate-t gstate-t-p)
-
 (define maybe-gstate-merge ((xgstate maybe-gstate-t-p)
                             (ygstate maybe-gstate-t-p))
   :returns (zgstate maybe-gstate-t-p)
@@ -939,6 +937,36 @@
                      el.req-out)))
     ))
 
+(define changed ((p sig-path-p)
+                 (prev gstate-t-p)
+                 (next gstate-t-p))
+  :returns (changed? booleanp)
+  (b* ((p (sig-path-fix p))
+       (prev (gstate-t->statev (gstate-t-fix prev)))
+       (next (gstate-t->statev (gstate-t-fix next)))
+       (prev-v (assoc-equal p (gstate-fix prev)))
+       ((unless (consp (smt::magic-fix 'sig-path_sig-value prev-v)))
+        nil)
+       (next-v (assoc-equal p (gstate-fix next)))
+       ((unless (consp (smt::magic-fix 'sig-path_sig-value next-v)))
+        nil)
+       ((if (equal prev-v next-v)) nil))
+    t))
+
+(define env-progress ((el lenv-p)
+                      (er renv-p)
+                      (prev gstate-t-p)
+                      (next gstate-t-p))
+  :returns (pro? booleanp)
+  (b* ((el (lenv-fix el))
+       ((lenv el) el)
+       (er (renv-fix er))
+       ((renv er) er))
+    (or (changed el.left-internal prev next)
+        (changed el.req-out prev next)
+        (changed er.right-internal prev next)
+        (changed er.ack-out prev next))))
+
 (defthm env-deadlock-free
   (implies (and (lenv-p el)
                 (renv-p er)
@@ -963,7 +991,10 @@
                 (renv-step er s1
                            (maybe-gstate-t-some->val
                             (renv-lenv-step-oracle el er s1 inf))
-                           inf)))
+                           inf)
+                (env-progress el er s1
+                              (maybe-gstate-t-some->val
+                               (renv-lenv-step-oracle el er s1 inf)))))
   :hints (("Goal"
            :smtlink
            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
