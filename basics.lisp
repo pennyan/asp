@@ -73,34 +73,88 @@
 ;; --------------------------------------
 ;; stage
 
-(defprod interval
+(defoption maybe-rational rationalp)
+
+(define mr-+ ((a maybe-rational-p) (b maybe-rational-p))
+  :returns (c maybe-rational-p)
+  (b* ((a (maybe-rational-fix a))
+       (b (maybe-rational-fix b)))
+    (cond ((equal a (maybe-rational-fix nil)) (maybe-rational-fix nil))
+          ((equal b (maybe-rational-fix nil)) (maybe-rational-fix nil))
+          (t (maybe-rational-some
+              (+ (maybe-rational-some->val a)
+                 (maybe-rational-some->val b)))))))
+
+(define mr-scaler-* ((a rationalp) (b maybe-rational-p))
+  :returns (c maybe-rational-p)
+  (b* ((b (maybe-rational-fix b))
+       ((if (equal b (maybe-rational-fix nil)))
+        (maybe-rational-fix nil)))
+    (maybe-rational-some (* a (maybe-rational-some->val b)))))
+
+(define mr-hi-<= ((a maybe-rational-p) (b rationalp))
+  :returns (ok booleanp)
+  (b* ((a (maybe-rational-fix a))
+       ((if (equal a (maybe-rational-fix nil))) nil))
+    (<= (maybe-rational-some->val a) b)))
+
+(define mr-hi-< ((a maybe-rational-p) (b rationalp))
+  :returns (ok booleanp)
+  (b* ((a (maybe-rational-fix a))
+       ((if (equal a (maybe-rational-fix nil))) nil))
+    (< (maybe-rational-some->val a) b)))
+
+(define mr-hi-> ((a maybe-rational-p) (b rationalp))
+  :returns (ok booleanp)
+  (b* ((a (maybe-rational-fix a))
+       ((if (equal a (maybe-rational-fix nil))) t))
+    (> (maybe-rational-some->val a) b)))
+
+(define mr-hi-max ((a maybe-rational-p) (b maybe-rational-p))
+  :returns (c maybe-rational-p)
+  (b* ((a (maybe-rational-fix a))
+       (b (maybe-rational-fix b)))
+    (cond ((or (equal a (maybe-rational-fix nil))
+               (equal b (maybe-rational-fix nil)))
+           (maybe-rational-fix nil))
+          ((>= (maybe-rational-some->val a)
+               (maybe-rational-some->val b))
+           a)
+          (t b))))
+
+(defprod delay-interval
   ((lo rationalp)
    (hi rationalp)))
 
-(define valid-interval ((i interval-p))
+(define valid-interval ((i delay-interval-p))
   :returns (ok booleanp)
-  (b* ((i (interval-fix i)))
-    (and (> (interval->lo i) 0)
-         (< (interval->lo i) (interval->hi i))
-         (> (* 2 (interval->lo i)) (interval->hi i)))))
+  (b* ((i (delay-interval-fix i)))
+    (and (> (delay-interval->lo i) 0)
+         (< (delay-interval->lo i) (delay-interval->hi i))
+         (> (* 2 (delay-interval->lo i)) (delay-interval->hi i)))))
 
-(define interval-add ((itv1 interval-p) (itv2 interval-p))
-  :returns (itv interval-p)
-  (b* ((itv1 (interval-fix itv1))
-       (itv2 (interval-fix itv2)))
-    (make-interval :lo (+ (interval->lo itv1)
-                          (interval->lo itv2))
-                   :hi (+ (interval->hi itv1)
-                          (interval->hi itv2)))))
+(defprod time-interval
+  ((lo rationalp)
+   (hi maybe-rational-p)))
 
-(define interval-max ((itv1 interval-p) (itv2 interval-p))
-  :returns (imax interval-p)
-  (b* ((itv1 (interval-fix itv1))
-       (itv2 (interval-fix itv2)))
-    (make-interval :lo (max (interval->lo itv1)
-                            (interval->lo itv2))
-                   :hi (max (interval->hi itv1)
-                            (interval->hi itv2)))))
+(define interval-add ((itv1 time-interval-p) (itv2 delay-interval-p))
+  :returns (itv time-interval-p)
+  (b* ((itv1 (time-interval-fix itv1))
+       (itv2 (delay-interval-fix itv2)))
+    (make-time-interval :lo (+ (time-interval->lo itv1)
+                               (delay-interval->lo itv2))
+                        :hi (mr-+ (time-interval->hi itv1)
+                                  (maybe-rational-some
+                                   (delay-interval->hi itv2))))))
+
+;; (define interval-max ((itv1 interval-p) (itv2 interval-p))
+;;   :returns (imax interval-p)
+;;   (b* ((itv1 (interval-fix itv1))
+;;        (itv2 (interval-fix itv2)))
+;;     (make-interval :lo (max (interval->lo itv1)
+;;                             (interval->lo itv2))
+;;                    :hi (max (interval->hi itv1)
+;;                             (interval->hi itv2)))))
 
 ;; ----------------------------------------------------
 (defoption maybe-gstate-t gstate-t-p)
@@ -113,13 +167,14 @@
 
 (defprod sig-target
   ((value booleanp)
-   (time interval-p)))
+   (time time-interval-p)))
 
 (define sig-target-from-signal ((sig sig-value-p))
   :returns (target sig-target-p)
   (make-sig-target :value (sig-value->value sig)
-                   :time  (make-interval :lo (sig-value->time sig)
-                                         :hi (sig-value->time sig))))
+                   :time  (make-time-interval
+                           :lo (sig-value->time sig)
+                           :hi (maybe-rational-some (sig-value->time sig)))))
 
 (defun sig-macro-help (sigs)
   (if (consp sigs)
@@ -158,20 +213,25 @@
     (sig-max-time-help tl newmax)))
 
 (define sig-max-time-fun ((sigs sig-value-list-p) (currmax rationalp))
-  :returns (v interval-p)
+  :returns (v time-interval-p)
   (b* ((u (sig-max-time-help sigs currmax)))
-    (make-interval :lo u :hi u)))
+    (make-time-interval
+     :lo u
+     :hi (maybe-rational-some u))))
 
 ;; Yan's temporary solution
 (define sig-max-time1 ((sig0 sig-value-p))
-  :returns (vv interval-p)
-  (make-interval :lo (sig-value->time sig0)
-                 :hi (sig-value->time sig0)))
+  :returns (vv time-interval-p)
+  (make-time-interval
+   :lo (sig-value->time sig0)
+   :hi (maybe-rational-some (sig-value->time sig0))))
 
 (define sig-max-time2 ((sig0 sig-value-p) (sig1 sig-value-p))
-  :returns (vv interval-p)
+  :returns (vv time-interval-p)
   (b* ((v (max (sig-value->time sig0) (sig-value->time sig1))))
-    (make-interval :lo v :hi v)))
+    (make-time-interval
+     :lo v
+     :hi (maybe-rational-some v))))
 
 (defmacro sig-max-time (sig0 &rest rst)
   (list 'sig-max-time-fun (sig-macro-help rst) (list 'sig-value->time sig0)))
@@ -210,14 +270,15 @@
                          (and (equal (sig-value->value next)
                                      (sig-target->value target))
                               (equal (sig-value->time next) tnext)
-                              (<= (interval->lo (sig-target->time target))
+                              (<= (time-interval->lo (sig-target->time target))
                                   tnext)
-                              (<  tnext
-                                  (interval->hi (sig-target->time target))))))
+                              (mr-hi-> (time-interval->hi (sig-target->time target))
+                                       tnext))))
         nil)
        ((unless (implies (not (equal (sig-value->value next)
                                      (sig-target->value target)))
-                         (< tnext (interval->hi (sig-target->time target)))))
+                         (mr-hi-> (time-interval->hi (sig-target->time target))
+                                  tnext)))
         nil))
     t))
 
@@ -237,3 +298,32 @@
        (new-statev (acons path sv (gstate-fix curr.statev))))
     (make-gstate-t :statev new-statev
                    :statet time)))
+
+(define maybe-gstate-merge ((xgstate maybe-gstate-t-p)
+                            (ygstate maybe-gstate-t-p))
+  :returns (zgstate maybe-gstate-t-p)
+  (b* ((xgstate (maybe-gstate-t-fix xgstate))
+       (ygstate (maybe-gstate-t-fix ygstate))
+       ((if (equal xgstate (maybe-gstate-t-fix nil))) ygstate)
+       ((if (equal ygstate (maybe-gstate-t-fix nil))) xgstate)
+       ((gstate-t x) (maybe-gstate-t-some->val xgstate))
+       ((gstate-t y) (maybe-gstate-t-some->val ygstate))
+       ((if (<= x.statet y.statet)) xgstate))
+    ygstate))
+
+(define changed ((p sig-path-p)
+                 (prev gstate-t-p)
+                 (next gstate-t-p))
+  :returns (changed? booleanp)
+  (b* ((p (sig-path-fix p))
+       (prev (gstate-t->statev (gstate-t-fix prev)))
+       (next (gstate-t->statev (gstate-t-fix next)))
+       (prev-v (assoc-equal p (gstate-fix prev)))
+       ((unless (consp (smt::magic-fix 'sig-path_sig-value prev-v)))
+        nil)
+       (next-v (assoc-equal p (gstate-fix next)))
+       ((unless (consp (smt::magic-fix 'sig-path_sig-value next-v)))
+        nil)
+       ((if (equal prev-v next-v)) nil))
+    t))
+

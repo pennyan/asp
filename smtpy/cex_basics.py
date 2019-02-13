@@ -24,8 +24,8 @@ def rational_to_acl2(r):
     raise Exception('rational_to_acl2, badarg: ' + str(r))
 
 def interval_to_acl2(iv):
-  return('(make-interval' + ' :lo ' + rational_to_acl2(x.interval.lo(iv))
-                          + ' :hi ' + rational_to_acl2(x.interval.hi(iv)) + ')')
+  return('(make-delay-interval' + ' :lo ' + rational_to_acl2(x.delay_sub_interval.lo(iv))
+                          + ' :hi ' + rational_to_acl2(x.delay_sub_interval.hi(iv)) + ')')
 
 def symbol_to_acl2(sym):
   sym = simplify(sym)

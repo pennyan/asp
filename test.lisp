@@ -17,12 +17,14 @@
        (tim (coerce (rational-to-string sv.time prec) 'list)))
     (coerce (append val at tim) 'string)))
 
-(define interval-to-string ((iv interval-p) (prec natp))
+(define interval-to-string ((iv time-interval-p) (prec natp))
   :returns (s stringp)
-  (b* (((unless (interval-p iv)) "???")
+  (b* (((unless (time-interval-p iv)) "???")
        (prec (if (natp prec) prec 4))
-       (lo (rational-to-string (interval->lo iv) prec))
-       (hi (rational-to-string (interval->hi iv) prec)))
+       (lo (rational-to-string (time-interval->lo iv) prec))
+       (hi (if (equal (time-interval->hi iv) nil)
+               "+inf"
+             (rational-to-string (time-interval->hi iv) prec))))
     (concatenate 'string "[" lo ", " hi ")")))
 
 (define show-sig ((sig sig-path-p)
@@ -48,7 +50,6 @@
        (renv (cdr (assoc 'renv cex)))
        (prev (cdr (assoc 's1 cex)))
        (next (cdr (assoc 's2 cex)))
-       (inf (cdr (assoc 'inf cex)))
        (prec 8)
        (tprev (gstate-t->statet prev))
        (prevv (gstate-t->statev prev))
@@ -63,10 +64,9 @@
        (ri-path  (renv->right-internal renv))
        (delta (lenv->delta lenv))
        (- (cw "-----------------------------------------------------~%"))
-       (- (cw "(inf = ~s0,~% delta = [~s1, ~s2))~%"
-              (rational-to-string inf prec)
-              (rational-to-string (interval->lo delta) prec)
-              (rational-to-string (interval->hi delta) prec)))
+       (- (cw "(delta = [~s0, ~s1))~%"
+              (rational-to-string (delay-interval->lo delta) prec)
+              (rational-to-string (delay-interval->hi delta) prec)))
        (- (cw "prev: tprev = ~s0~%" (rational-to-string tprev prec)))
        (- (show-sig li-path prevv "left-internal" prec))
        (- (show-sig gf-path prevv "go-full" prec))
@@ -97,16 +97,14 @@
                         :ack em
                         :li li
                         :ri fi
-                        :delta delta
-                        :inf inf))
+                        :delta delta))
        (testbench-right (make-asp-env-testbench
                          :req fl
                          :ack ge
                          :li fi
                          :ri ri
-                         :delta delta
-                         :inf inf))
-       (inv (invariant-asp-stage asp lenv renv next inf))
+                         :delta delta))
+       (inv (invariant-asp-stage asp lenv renv next))
        (- (cw "~%Testing the whole invariant on next state: ~q0"
               (if inv 'passed 'failed)))
        (- (cw "----------------Left half---------------------~%"))
@@ -166,8 +164,8 @@
        (- (cw "rx_ready = ~s0~%"
               (interval-to-string (external-next-ready-time  rb) prec)))
        (- (cw "-----------------------------------------------------~%"))
-       (lstep  (lenv-step lenv prev next inf))
-       (rstep  (renv-step renv prev next inf))
+       (lstep  (lenv-step lenv prev next))
+       (rstep  (renv-step renv prev next))
        (- (cw "lstep = ~x0, rstep=~x1~%"
               lstep rstep))
        (- (cw "-----------------------------------------------------~%"))
@@ -177,5 +175,28 @@
        (asp2-hf (asp-gate-hazard-free-step asp next))
        (- (cw "lhf = ~x0, rhf=~x1, ahf1=~x2, ahf2=~x3~%"
               lenv-hf renv-hf asp1-hf asp2-hf))
+       (- (cw "-----------------------------------------------------~%"))
+       (- (cw "prev; ~q0" prev))
+       (- (cw "asp-step-oracle: ~q0" (asp-step-oracle lenv renv asp prev)))
+       (- (cw "lenv-step: ~q0" (lenv-step lenv prev
+                                          (maybe-gstate-t-some->val
+                                           (asp-step-oracle lenv renv asp prev)))))
+       (- (cw "renv-step: ~q0" (renv-step renv prev
+                                          (maybe-gstate-t-some->val
+                                           (asp-step-oracle lenv renv asp prev)))))
+       (- (cw "asp-step: ~q0" (asp-step asp prev
+                                        (maybe-gstate-t-some->val
+                                         (asp-step-oracle lenv renv asp prev)))))
+       (- (cw "asp-step-left: ~q0" (renv-step (asp-stage->left asp) prev
+                                                   (maybe-gstate-t-some->val
+                                                    (asp-step-oracle lenv renv
+                                                                     asp prev)))))
+       (- (cw "asp-step-right: ~q0" (lenv-step (asp-stage->right asp) prev
+                                                   (maybe-gstate-t-some->val
+                                                    (asp-step-oracle lenv renv
+                                                                     asp prev)))))
+       (- (cw "asp-progress: ~q0" (asp-progress lenv renv asp prev
+                                                (maybe-gstate-t-some->val
+                                                 (asp-step-oracle lenv renv asp prev)))))
        )
     nil))

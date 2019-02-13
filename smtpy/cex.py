@@ -63,8 +63,8 @@ def acl2(m):
 	       x.lenv.left_sub_internal(m[x.el]),
 	       x.renv.right_sub_internal(m[x.er])]
   flat_sigs = [ gen_sigs(foo) for foo in sigs ]
-  lo = simplify(x.interval.lo(x.lenv.delta(m[x.el])))
-  hi = simplify(x.interval.hi(x.lenv.delta(m[x.el])))
+  lo = simplify(x.delay_sub_interval.lo(x.lenv.delta(m[x.el])))
+  hi = simplify(x.delau_sub_interval.hi(x.lenv.delta(m[x.el])))
   delta = [ (lo, hi) for i in range(0,3)]
   sig_curr = [ gen_sigvals(foo, nxt_v) for foo in sigs]
   tcurr = simplify(nxt_t)
@@ -105,7 +105,6 @@ def acl2m(m):
   er = m[x.er]
   s1 = m[x.s1]
   s2 = m[x.s2]
-  inf = m[x.inf]
   sigs = [ x.lenv.left_sub_internal(el),
            x.asp_sub_stage.go_sub_full(a),
            x.asp_sub_stage.empty(a),
@@ -118,8 +117,7 @@ def acl2m(m):
                   + "(cons 'lenv " + lenv_to_acl2(el) + ")     \n"
                   + "(cons 'renv " + renv_to_acl2(er) + ")     \n"
                   + "(cons 's1 " + gstate_t_to_acl2(s1, m, sigs) + ")\n"
-                  + "(cons 's2 " + gstate_t_to_acl2(s2, m, sigs) + ")\n"
-                  + "(cons 'inf " + rational_to_acl2(inf) + ")))\n")
+                  + "(cons 's2 " + gstate_t_to_acl2(s2, m, sigs) + ")))\n")
 
 
   # fetch the counter-example from x and print it in a human readable form

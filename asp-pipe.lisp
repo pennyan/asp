@@ -76,76 +76,71 @@
 
 (define asp-stage-list-step ((al asp-stage-list-p)
                              (s1 gstate-t-p)
-                             (s2 gstate-t-p)
-                             (inf rationalp))
+                             (s2 gstate-t-p))
   :returns (v booleanp)
   :measure (len al)
   (b* ((al (asp-stage-list-fix al))
        ((unless (consp (asp-stage-list-fix al))) t)
        ((asp-stage first) (car (asp-stage-list-fix al)))
        (rest (cdr (asp-stage-list-fix al)))
-       ((unless (asp-step first s1 s2 inf))
+       ((unless (asp-step first s1 s2))
         nil))
-    (asp-stage-list-step rest s1 s2 inf)))
+    (asp-stage-list-step rest s1 s2)))
 
 (define asp-pipeline-step ((p asp-pipeline-p)
                            (s1 gstate-t-p)
-                           (s2 gstate-t-p)
-                           (inf rationalp))
+                           (s2 gstate-t-p))
   :returns (v booleanp)
   (b* (((asp-pipeline p) (asp-pipeline-fix p)))
-    (and (lenv-step p.el s1 s2 inf)
-         (renv-step p.er s1 s2 inf)
-         (asp-stage-list-step p.stages s1 s2 inf))))
+    (and (lenv-step p.el s1 s2)
+         (renv-step p.er s1 s2)
+         (asp-stage-list-step p.stages s1 s2))))
 
 (define invariant-asp-pipeline ((p asp-pipeline-p)
-                                (s gstate-t-p)
-                                (inf rationalp))
+                                (s gstate-t-p))
   :returns (ok booleanp)
   :measure (len (asp-pipeline->stages p))
   (b* (((asp-pipeline p) (asp-pipeline-fix p))
        (s (gstate-t-fix s))
        ((unless (consp (asp-stage-list-fix p.stages)))
-        (invariant-env p.el p.er s inf))
+        (invariant-env p.el p.er s))
        ((asp-stage first) (car (asp-stage-list-fix p.stages)))
        (rest (cdr (asp-stage-list-fix p.stages)))
-       ((unless (invariant-env p.el first.left s inf))
+       ((unless (invariant-env p.el first.left s))
         nil)
        (p-tl (make-asp-pipeline :el first.right
                                 :stages rest
                                 :er p.er)))
-    (invariant-asp-pipeline p-tl s inf)))
+    (invariant-asp-pipeline p-tl s)))
 
 (defthm asp-pipeline-step-thm
   (implies (and (asp-pipeline-p p)
                 (consp (asp-pipeline->stages p))
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
                 (lenv-step (asp-stage->right (car (asp-pipeline->stages p)))
-                           s1 s2 inf)
+                           s1 s2)
                 (asp-stage-list-step (cdr (asp-pipeline->stages p))
-                                     s1 s2 inf)
+                                     s1 s2)
                 (renv-step (asp-pipeline->er p)
-                           s1 s2 inf))
+                           s1 s2))
            (asp-pipeline-step
             (asp-pipeline (asp-stage->right (car (asp-pipeline->stages p)))
                           (cdr (asp-pipeline->stages p))
                           (asp-pipeline->er p))
-            s1 s2 inf))
+            s1 s2))
   :hints (("Goal" :in-theory (e/d (asp-pipeline-step) ()))))
 
 (defthm asp-pipeline-cdr-invariant-thm
   (implies (and (asp-pipeline-p p)
                 (consp (asp-pipeline->stages p))
                 (gstate-t-p s)
-                (rationalp inf)
-                (invariant-asp-pipeline p s inf))
+                (invariant-asp-pipeline p s))
            (invariant-asp-pipeline
             (asp-pipeline (asp-stage->right (car (asp-pipeline->stages p)))
                           (cdr (asp-pipeline->stages p))
                           (asp-pipeline->er p))
-            s inf))
+            s))
   :hints (("Goal" :in-theory (e/d (invariant-asp-pipeline) ()))))
 
 
@@ -154,12 +149,11 @@
   (implies (and (asp-pipeline-p p)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
                 (asp-pipeline-constraints p)
-                (asp-pipeline-step p s1 s2 inf)
+                (asp-pipeline-step p s1 s2)
 
-                (invariant-asp-pipeline p s1 inf))
-           (invariant-asp-pipeline p s2 inf))
+                (invariant-asp-pipeline p s1))
+           (invariant-asp-pipeline p s2))
   :hints (("Goal"
            :in-theory (e/d (invariant-asp-pipeline
                             asp-pipeline-constraints
@@ -171,8 +165,8 @@
            ;; ones in enabled functions
            :expand ((asp-pipeline-connections p)
                     (asp-pipeline-time-intervals p)
-                    (asp-stage-list-step (asp-pipeline->stages p) s1 s2 inf))
-           :induct (invariant-asp-pipeline p s1 inf))
+                    (asp-stage-list-step (asp-pipeline->stages p) s1 s2))
+           :induct (invariant-asp-pipeline p s1))
           ))
 
 ;; --------------------------------------------------
@@ -208,7 +202,7 @@
         (consp (asp-stage-list-fix (asp-pipeline->stages p)))
         (invariant-env (asp-pipeline->el p)
                        (asp-stage->left (car (asp-stage-list-fix (asp-pipeline->stages p))))
-                       s1 inf)
+                       s1)
         (asp-pipeline-hazard-free-step
          (asp-pipeline (asp-stage->right (car (asp-stage-list-fix (asp-pipeline->stages p))))
                        (cdr (asp-stage-list-fix (asp-pipeline->stages p)))
@@ -217,7 +211,6 @@
         (asp-pipeline-p p)
         (gstate-t-p s1)
         (gstate-t-p s2)
-        (rationalp inf)
         (env-connection (asp-pipeline->el p)
                         (asp-stage->left (car (asp-stage-list-fix (asp-pipeline->stages p)))))
         (asp-internal-connection (car (asp-stage-list-fix (asp-pipeline->stages p))))
@@ -235,29 +228,31 @@
                        (cdr (asp-stage-list-fix (asp-pipeline->stages p)))
                        (asp-pipeline->er p)))
         (lenv-step (asp-pipeline->el p)
-                   s1 s2 inf)
+                   s1 s2)
         (renv-step (asp-pipeline->er p)
-                   s1 s2 inf)
+                   s1 s2)
         (renv-step (asp-stage->left (car (asp-stage-list-fix (asp-pipeline->stages p))))
-                   s1 s2 inf)
+                   s1 s2)
         (lenv-step (asp-stage->right (car (asp-stage-list-fix (asp-pipeline->stages p))))
-                   s1 s2 inf)
+                   s1 s2)
         (asp-stage-list-step (cdr (asp-stage-list-fix (asp-pipeline->stages p)))
-                             s1 s2 inf)
+                             s1 s2)
         (invariant-asp-pipeline
          (asp-pipeline (asp-stage->right (car (asp-stage-list-fix (asp-pipeline->stages p))))
                        (cdr (asp-stage-list-fix (asp-pipeline->stages p)))
                        (asp-pipeline->er p))
-         s1 inf))
+         s1))
    (asp-stage-hazard-free-step (car (asp-stage-list-fix (asp-pipeline->stages p)))
                                s1 s2))
   :hints (("Goal"
            :smtlink
            (:fty (asp-stage-list asp-pipeline
-                                 asp-stage lenv renv interval gtrace sig-value gstate gstate-t
+                                 asp-stage lenv renv time-interval
+                                 delay-interval
+                                 gtrace sig-value gstate gstate-t
                                  sig-path-list sig-path sig sig-target
                                  asp-env-testbench asp-my-bench integer-list
-                                 sig-value-list)
+                                 sig-value-list maybe-rational)
                  :functions ((sigs-in-bool-table
                               :formals ((sigs sig-path-listp)
                                         (st gstate-p))
@@ -279,15 +274,13 @@
                               :level 1)
                              (invariant-asp-pipeline
                               :formals ((p asp-pipeline-p)
-                                        (s gstate-t-p)
-                                        (inf rationalp))
+                                        (s gstate-t-p))
                               :returns ((ok booleanp))
                               :level 1)
                              (asp-stage-list-step
                               :formals ((al asp-stage-list-p)
                                         (s1 gstate-t-p)
-                                        (s2 gstate-t-p)
-                                        (inf rationalp))
+                                        (s2 gstate-t-p))
                               :returns ((v booleanp))
                               :level 1))
                  :evilp t
@@ -300,12 +293,11 @@
   (implies (and (asp-pipeline-p p)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
                 (asp-pipeline-constraints p)
-                (asp-pipeline-step p s1 s2 inf)
+                (asp-pipeline-step p s1 s2)
 
-                (invariant-asp-pipeline p s1 inf)
-                (invariant-asp-pipeline p s2 inf))
+                (invariant-asp-pipeline p s1)
+                (invariant-asp-pipeline p s2))
            (asp-pipeline-hazard-free-step p s1 s2))
   :hints (("Goal"
            :in-theory (e/d (invariant-asp-pipeline
@@ -319,8 +311,8 @@
            ;; ones in enabled functions
            :expand ((asp-pipeline-connections p)
                     (asp-pipeline-time-intervals p)
-                    (asp-stage-list-step (asp-pipeline->stages p) s1 s2 inf))
-           :induct (invariant-asp-pipeline p s1 inf)
+                    (asp-stage-list-step (asp-pipeline->stages p) s1 s2))
+           :induct (invariant-asp-pipeline p s1)
            )
           ("Subgoal *1/3"
            :use ((:instance env-hazard-free-thm
@@ -349,9 +341,8 @@
   (implies (and (asp-pipeline-p p)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
                 (asp-pipeline-constraints p)
-                (asp-pipeline-step p s1 s2 inf)
+                (asp-pipeline-step p s1 s2)
 
-                (invariant-asp-pipeline p s1 inf))
+                (invariant-asp-pipeline p s1))
            (asp-pipeline-hazard-free-step p s1 s2)))

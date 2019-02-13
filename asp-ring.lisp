@@ -25,18 +25,16 @@
 
 (define asp-ring-step ((r asp-ring-p)
                        (s1 gstate-t-p)
-                       (s2 gstate-t-p)
-                       (inf rationalp))
+                       (s2 gstate-t-p))
   :returns (v booleanp)
   (b* (((asp-ring r) (asp-ring-fix r)))
-    (asp-pipeline-step r.p s1 s2 inf)))
+    (asp-pipeline-step r.p s1 s2)))
 
 (define invariant-asp-ring ((r asp-ring-p)
-                            (s gstate-t-p)
-                            (inf rationalp))
+                            (s gstate-t-p))
   :returns (ok booleanp)
   (b* (((asp-ring r) (asp-ring-fix r)))
-    (invariant-asp-pipeline r.p s inf)))
+    (invariant-asp-pipeline r.p s)))
 
 (define asp-ring-hazard-free-step ((r asp-ring-p)
                                    (s1 gstate-t-p)
@@ -49,10 +47,9 @@
   (implies (and (asp-ring-p r)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
                 (asp-ring-constraints p)
-                (asp-ring-step p s1 s2 inf)
-                (invariant-asp-ring p s1 inf))
+                (asp-ring-step p s1 s2)
+                (invariant-asp-ring p s1))
            (asp-ring-hazard-free-step p s1 s2))
   :hints (("Goal" :in-theory (e/d (asp-ring-constraints
                                    asp-ring-step

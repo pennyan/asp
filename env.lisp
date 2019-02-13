@@ -18,7 +18,7 @@
   ((ack-in sig-path-p)
    (req-out sig-path-p)
    (left-internal sig-path-p)
-   (delta interval-p)
+   (delta delay-interval-p)
    ))
 
 (define lenv-sigs ((e lenv-p))
@@ -37,7 +37,7 @@
   ((req-in sig-path-p)
    (ack-out sig-path-p)
    (right-internal sig-path-p)
-   (delta interval-p)
+   (delta delay-interval-p)
    ))
 
 (define renv-sigs ((e renv-p))
@@ -54,8 +54,7 @@
 
 (define lenv-step ((e lenv-p)
                    (prev gstate-t-p)
-                   (next gstate-t-p)
-                   (inf rationalp))
+                   (next gstate-t-p))
   :returns (ok booleanp)
   ;; Need a theorem that says if sigs-in-bool-table, then assoc-equal is not nil
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table lenv-sigs))))
@@ -84,12 +83,10 @@
                         ((not (sig-value->value li-prev))
                          (make-sig-target
                           :value t
-                          :time (make-interval
+                          :time (make-time-interval
                                  :lo (+ (sig-value->time li-prev)
-                                        (* 2 (interval->lo delta)))
-                                 :hi (+ (sig-value->time li-prev)
-                                        (* 2 (interval->hi delta))
-                                        inf))))
+                                        (* 2 (delay-interval->lo delta)))
+                                 :hi (maybe-rational-fix nil))))
                         (t (sig-target-from-signal li-prev))))
        ((unless (sig-check-transition li-prev li-next li-target
                                       prev.statet next.statet))
@@ -111,8 +108,7 @@
 
 
 (define lenv-valid ((e lenv-p)
-                    (tr gtrace-p)
-                    (inf rationalp))
+                    (tr gtrace-p))
   :returns (ok booleanp)
   :measure (len (gtrace-fix tr))
   :hints (("Goal" :in-theory (enable gtrace-fix)))
@@ -122,13 +118,12 @@
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t)
        (second (car (gtrace-fix rest)))
-       ((unless (lenv-step e first second inf)) nil))
-    (lenv-valid e rest inf)))
+       ((unless (lenv-step e first second)) nil))
+    (lenv-valid e rest)))
 
 (define renv-step ((e renv-p)
                    (prev gstate-t-p)
-                   (next gstate-t-p)
-                   (inf rationalp))
+                   (next gstate-t-p))
   :returns (ok booleanp)
   ;; Need a theorem that says if sigs-in-bool-table, then assoc-equal is not nil
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table renv-sigs))))
@@ -156,13 +151,12 @@
                         ((sig-value->value ri-prev)
                          (make-sig-target
                           :value nil
-                          :time (make-interval
+                          :time (make-time-interval
                                  :lo (+ (sig-value->time ri-prev)
-                                        (* 2 (interval->lo delta)))
-                                 :hi (+ (sig-value->time ri-prev)
-                                        (* 2 (interval->hi delta))
-                                        inf))))
+                                        (* 2 (delay-interval->lo delta)))
+                                 :hi (maybe-rational-fix nil))))
                         (t (sig-target-from-signal ri-prev))))
+       (- (cw "ri-target: ~q0" ri-target))
        ((unless (sig-check-transition ri-prev ri-next ri-target prev.statet
                                       next.statet))
         nil)
@@ -172,10 +166,13 @@
                                             :time (interval-add (sig-max-time1 ri-prev)
                                                                 delta))
                          (sig-target-from-signal ack-out-prev)))
+       (- (cw "ack-out-target: ~q0" ack-out-target))
        ((unless (sig-check-transition ack-out-prev ack-out-next
                                       ack-out-target prev.statet
                                       next.statet))
         nil)
+       (- (cw "rest check-times: ~q0" (sig-check-times req-in-prev req-in-next prev.statet
+                                                       next.statet)))
        ((unless (sig-check-times req-in-prev req-in-next prev.statet
                                  next.statet))
         nil))
@@ -183,8 +180,7 @@
   )
 
 (define renv-valid ((e renv-p)
-                    (tr gtrace-p)
-                    (inf rationalp))
+                    (tr gtrace-p))
   :returns (ok booleanp)
   :measure (len (gtrace-fix tr))
   :hints (("Goal" :in-theory (enable gtrace-fix)))
@@ -194,8 +190,8 @@
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t)
        (second (car (gtrace-fix rest)))
-       ((unless (renv-step e first second inf)) nil))
-    (renv-valid e rest inf)))
+       ((unless (renv-step e first second)) nil))
+    (renv-valid e rest)))
 
 ;; ------------------------------------------------------------
 ;;         define connection function of lenv to renv
@@ -218,8 +214,7 @@
    (ack sig-value-p)  ;; acknowledge -- from renv to lenv
    (li sig-value-p)   ;; internal state of lenv
    (ri sig-value-p)   ;; internal state of renv
-   (delta interval-p)
-   (inf rationalp)))
+   (delta delay-interval-p)))
 
 (defmacro with-asp-env-testbench (tb bindings value)
   `(b* ((testbench (asp-env-testbench-fix ,tb))
@@ -228,7 +223,6 @@
         ((sig-value li) (asp-env-testbench->li testbench))
         ((sig-value ri) (asp-env-testbench->ri testbench))
         (delta (asp-env-testbench->delta testbench))
-        (inf (asp-env-testbench->inf testbench))
         ,@bindings)
      ,value))
 
@@ -240,8 +234,7 @@
    (your-internal sig-value-p)
    (your-external sig-value-p)
    (ready-is-t booleanp)
-   (delta interval-p)
-   (inf rationalp)))
+   (delta delay-interval-p)))
 
 (defmacro with-asp-my-bench (tb bindings value)
   `(b* ((mybench (asp-my-bench-fix ,tb))
@@ -250,8 +243,7 @@
         ((sig-value yi) (asp-my-bench->your-internal mybench))
         ((sig-value yx) (asp-my-bench->your-external mybench))
         (ready-is-t (asp-my-bench->ready-is-t mybench))
-        ((interval delta) (asp-my-bench->delta mybench))
-        (inf (asp-my-bench->inf mybench))
+        ((delay-interval delta) (asp-my-bench->delta mybench))
         (ready (equal mi.value ready-is-t))
         ,@bindings)
      ,value))
@@ -265,8 +257,7 @@
                            :your-internal ri
                            :your-external ack
                            :ready-is-t t
-                           :delta delta
-                           :inf inf)))
+                           :delta delta)))
 
 (define rightbench ((testbench asp-env-testbench-p))
   :returns (myb asp-my-bench-p)
@@ -277,8 +268,7 @@
                            :your-internal li
                            :your-external req
                            :ready-is-t nil
-                           :delta delta
-                           :inf inf)))
+                           :delta delta)))
 
 (define basic-timing ((curr sig-value-p)
                       (tcurr rationalp))
@@ -385,11 +375,12 @@
                       ;; added invariant for proving the deadlock-free theorem
                       ;; if ready isn't set yet, current time can't have
                       ;; reached delta.hi
-                      (fail-acc
-                       (if (implies (not ready)
-                                    (< tcurr (+ mi.time (* 2 delta.hi) inf)))
-                           fail-acc
-                         (cons 7 (integer-list-fix fail-acc)))))
+                      ;; (fail-acc
+                      ;;  (if (implies (not ready)
+                      ;;               (< tcurr (+ mi.time (* 2 delta.hi) inf)))
+                      ;;      fail-acc
+                      ;;    (cons 7 (integer-list-fix fail-acc))))
+                      )
                      fail-acc))
 
 (define invariant-lenv-failed ((b asp-env-testbench-p)
@@ -428,11 +419,13 @@
 ;;   my-internal is already idle, just make an interval where both bounds
 ;;   are mi.time.
 (define internal-idle-time ((b asp-my-bench-p))
-  :returns(next-time interval-p)
+  :returns (next-time time-interval-p)
   (with-asp-my-bench b
                      (((if ready)
                        (interval-add (sig-max-time2 mx yx) delta)))
-                     (make-interval :lo mi.time :hi mi.time)))
+                     (make-time-interval
+                      :lo mi.time
+                      :hi (maybe-rational-some mi.time))))
 
 ;; internal-next-ready-time: time interval for the *next* time that
 ;;   my-internal is ready.  If my-internal is idle, we determine bounds on
@@ -440,31 +433,36 @@
 ;;   we calculate bounds on when it goes to idle and then goes back to
 ;;   ready again.  Hence the "next" in the function name.
 (define internal-next-ready-time ((b asp-my-bench-p))
-  :returns(next-time interval-p)
+  :returns(next-time time-interval-p)
   (with-asp-my-bench b
-                     (((interval it) (internal-idle-time b)))
-                     (make-interval :lo (+ it.lo (* 2 delta.lo))
-                                    :hi (+ it.hi (* 2 delta.hi) inf))))
+                     (((time-interval it) (internal-idle-time b)))
+                     (make-time-interval
+                      :lo (+ it.lo (* 2 delta.lo))
+                      :hi (maybe-rational-fix nil))))
 
 ;; internal-ready-time: time interval for the when my-internal is ready.
 (define internal-ready-time ((b asp-my-bench-p))
-  :returns(next-time interval-p)
+  :returns(next-time time-interval-p)
   (with-asp-my-bench b
-                     (((if ready) (make-interval :lo mi.time :hi mi.time)))
+                     (((if ready) (make-time-interval
+                                   :lo mi.time
+                                   :hi (maybe-rational-some mi.time))))
                      (internal-next-ready-time b)))
 
 ;; external-idle-time: time interval for the next time that my-external is
 ;;   idle.
 (define external-idle-time ((b asp-my-bench-p))
-  :returns(next-time interval-p)
+  :returns(next-time time-interval-p)
   (with-asp-my-bench b
-                     (((unless mx.value) (make-interval :lo mx.time :hi mx.time)))
+                     (((unless mx.value) (make-time-interval
+                                          :lo mx.time
+                                          :hi (maybe-rational-some mx.time))))
                      (interval-add (internal-idle-time b) delta)))
 
 ;; external-next-ready-time: time interval for the *next* time that
 ;;   my-external is ready.
 (define external-next-ready-time ((b asp-my-bench-p))
-  :returns(next-time interval-p)
+  :returns(next-time time-interval-p)
   (with-asp-my-bench b nil
                      (interval-add (if mx.value
                                        (internal-next-ready-time b)
@@ -492,14 +490,14 @@
   (with-asp-env-testbench b
                           ((lb (leftbench b))
                            (rb (rightbench b))
-                           ((interval li_idle)  (internal-idle-time  lb))
-                           ((interval li_ready) (internal-next-ready-time  lb))
-                           ((interval lx_idle)  (external-idle-time  lb))
-                           ((interval lx_ready) (external-next-ready-time lb))
-                           ((interval ri_idle)  (internal-idle-time  rb))
-                           ((interval ri_ready) (internal-next-ready-time  rb))
-                           ((interval rx_idle)  (external-idle-time  rb))
-                           ((interval rx_ready) (external-next-ready-time rb))
+                           ((time-interval li_idle)  (internal-idle-time  lb))
+                           ((time-interval li_ready) (internal-next-ready-time  lb))
+                           ((time-interval lx_idle)  (external-idle-time  lb))
+                           ((time-interval lx_ready) (external-next-ready-time lb))
+                           ((time-interval ri_idle)  (internal-idle-time  rb))
+                           ((time-interval ri_ready) (internal-next-ready-time  rb))
+                           ((time-interval rx_idle)  (external-idle-time  rb))
+                           ((time-interval rx_ready) (external-next-ready-time rb))
                            (l-ready li.value)
                            (r-ready (not ri.value))
                            ;; (- (cw "req = ~q0, ack = ~q1, li_idle = ~q2, ri_idle = ~q3, lx_idle = ~q4, rx_idle = ~q5"
@@ -512,8 +510,8 @@
                            ;; idle before either resets its output.
                            (failed-acc
                             (if (implies (and req.value ack.value)
-                                         (< (max li_idle.hi ri_idle.hi)
-                                            (min lx_idle.lo rx_idle.lo)))
+                                         (mr-hi-< (mr-hi-max li_idle.hi ri_idle.hi)
+                                                  (min lx_idle.lo rx_idle.lo)))
                                 failed-acc
                               (cons 1 (integer-list-fix failed-acc))))
                            ;; both outputs must be reset before either is set
@@ -522,8 +520,8 @@
                             (if (implies
                                  (or (and ack.value (or req.value (not r-ready)))
                                      (and req.value (or ack.value (not l-ready))))
-                                 (< (max lx_idle.hi  rx_idle.hi)
-                                    (min lx_ready.lo rx_ready.lo)))
+                                 (mr-hi-< (mr-hi-max lx_idle.hi  rx_idle.hi)
+                                          (min lx_ready.lo rx_ready.lo)))
                                 failed-acc
                               (cons 2 (integer-list-fix failed-acc)))))
                           failed-acc))
@@ -536,7 +534,7 @@
 ;; ------------------------------------------------------------------------------
 
 (define invariant-env ((left lenv-p) (right renv-p)
-                       (curr gstate-t-p) (inf rationalp))
+                       (curr gstate-t-p))
   :returns (ok booleanp)
   :guard-hints (("Goal" :in-theory (enable sigs-in-bool-table
                                            lenv-sigs renv-sigs)))
@@ -557,15 +555,12 @@
                    :ack ack
                    :li li
                    :ri ri
-                   :delta delta
-                   :inf inf)))
-    (and (< 0 inf)
-         (invariant-lenv testbench currt)
+                   :delta delta)))
+    (and (invariant-lenv testbench currt)
          (invariant-renv testbench currt)
          (interact-env testbench))))
 
-(define invariant-env-trace ((el lenv-p) (er renv-p) (tr gtrace-p)
-                             (inf rationalp))
+(define invariant-env-trace ((el lenv-p) (er renv-p) (tr gtrace-p))
   :returns (ok booleanp)
   :measure (len tr)
   (b* ((tr (gtrace-fix tr))
@@ -573,8 +568,8 @@
        (first (car (gtrace-fix tr)))
        (rest (cdr (gtrace-fix tr)))
        ((unless (consp (gtrace-fix rest))) t))
-    (and (invariant-env el er first inf)
-         (invariant-env-trace el er rest inf))))
+    (and (invariant-env el er first)
+         (invariant-env-trace el er rest))))
 
 (defthm invariant-env-step-thm
   (implies (and (lenv-p el)
@@ -582,21 +577,20 @@
                 (env-connection el er)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
-                (lenv-step el s1 s2 inf)
-                (renv-step er s1 s2 inf)
+                (lenv-step el s1 s2)
+                (renv-step er s1 s2)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
                 (equal (lenv->delta el)
                        (renv->delta er))
-                (invariant-env el er s1 inf))
-           (invariant-env el er s2 inf))
+                (invariant-env el er s1))
+           (invariant-env el er s2))
   :hints (("Goal"
            :smtlink
-           (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+           (:fty (lenv renv delay-interval time-interval gtrace sig-value gstate gstate-t
                        sig-path-list sig-path sig sig-target
                        asp-env-testbench asp-my-bench integer-list
-                       sig-value-list)
+                       sig-value-list maybe-rational)
                  :functions ((sigs-in-bool-table
                               :formals ((sigs sig-path-listp)
                                         (st gstate-p))
@@ -612,30 +606,28 @@
                 (renv-p er)
                 (env-connection el er)
                 (gtrace-p tr)
-                (rationalp inf)
-                (lenv-valid el tr inf)
-                (renv-valid er tr inf)
+                (lenv-valid el tr)
+                (renv-valid er tr)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
                 (equal (lenv->delta el)
                        (renv->delta er))
                 (consp (gtrace-fix tr))
                 (consp (gtrace-fix (cdr (gtrace-fix tr))))
-                (invariant-env el er (car (gtrace-fix tr)) inf))
-           (invariant-env-trace el er tr inf))
+                (invariant-env el er (car (gtrace-fix tr))))
+           (invariant-env-trace el er tr))
   :hints (("Goal"
            :in-theory (e/d (invariant-env-trace)
                            ())
-           :expand ((lenv-valid el tr inf)
-                    (renv-valid er tr inf)
-                    (invariant-env-trace el er tr inf)))
+           :expand ((lenv-valid el tr)
+                    (renv-valid er tr)
+                    (invariant-env-trace el er tr)))
           ("Subgoal *1/1'"
            :use ((:instance invariant-env-step-thm
                             (el el)
                             (er er)
                             (s1 (car tr))
-                            (s2 (car (cdr tr)))
-                            (inf inf))))
+                            (s2 (car (cdr tr))))))
           ))
 
 
@@ -702,23 +694,23 @@
                 (env-connection el er)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
-                (lenv-step el s1 s2 inf)
-                (renv-step er s1 s2 inf)
+                (lenv-step el s1 s2)
+                (renv-step er s1 s2)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
                 (equal (lenv->delta el)
                        (renv->delta er))
-                (invariant-env el er s1 inf)
-                (invariant-env el er s2 inf))
+                (invariant-env el er s1)
+                (invariant-env el er s2))
            (and (lenv-hazard-free-step el s1 s2)
                 (renv-hazard-free-step er s1 s2)))
   :hints (("Goal"
            :smtlink
-           (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+           (:fty (lenv renv delay-interval time-interval
+                       gtrace sig-value gstate gstate-t
                        sig-path-list sig-path sig sig-target
                        asp-env-testbench asp-my-bench integer-list
-                       sig-value-list)
+                       sig-value-list maybe-rational)
                  :functions ((sigs-in-bool-table
                               :formals ((sigs sig-path-listp)
                                         (st gstate-p))
@@ -733,33 +725,19 @@
                 (env-connection el er)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
-                (rationalp inf)
-                (lenv-step el s1 s2 inf)
-                (renv-step er s1 s2 inf)
+                (lenv-step el s1 s2)
+                (renv-step er s1 s2)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
                 (equal (lenv->delta el)
                        (renv->delta er))
-                (invariant-env el er s1 inf))
+                (invariant-env el er s1))
            (and (lenv-hazard-free-step el s1 s2)
                 (renv-hazard-free-step er s1 s2))))
 
 ;; --------------------------------------------------
-(define maybe-gstate-merge ((xgstate maybe-gstate-t-p)
-                            (ygstate maybe-gstate-t-p))
-  :returns (zgstate maybe-gstate-t-p)
-  (b* ((xgstate (maybe-gstate-t-fix xgstate))
-       (ygstate (maybe-gstate-t-fix ygstate))
-       ((if (equal xgstate (maybe-gstate-t-fix nil))) ygstate)
-       ((if (equal ygstate (maybe-gstate-t-fix nil))) xgstate)
-       ((gstate-t x) (maybe-gstate-t-some->val xgstate))
-       ((gstate-t y) (maybe-gstate-t-some->val ygstate))
-       ((if (<= x.statet y.statet)) xgstate))
-    ygstate))
-
 (define li-step-oracle ((el lenv-p)
-                        (s gstate-t-p)
-                        (inf rationalp))
+                        (s gstate-t-p))
   :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          lenv-sigs
@@ -777,19 +755,18 @@
        ((sig-value li) li)
        (tnext1 (max s.statet
                     (+ (max req.time ack.time)
-                       (interval->lo el.delta))))
+                       (delay-interval->lo el.delta))))
        (snext1 (change-state s el.left-internal nil tnext1))
        (tnext2 (max s.statet
                     (+ li.time
-                       (* 2 (interval->lo el.delta)))))
+                       (* 2 (delay-interval->lo el.delta)))))
        (snext2 (change-state s el.left-internal t tnext2)))
     (cond ((and req.value ack.value li.value) (maybe-gstate-t-some snext1))
           ((not li.value) (maybe-gstate-t-some snext2))
           (t (maybe-gstate-t-fix nil)))))
 
 (define req-step-oracle ((el lenv-p)
-                         (s gstate-t-p)
-                         (inf rationalp))
+                         (s gstate-t-p))
   :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          lenv-sigs)
@@ -804,22 +781,20 @@
        ((sig-value req) req)
        ((sig-value li) li)
        (tnext (max s.statet
-                   (+ li.time (interval->lo el.delta))))
+                   (+ li.time (delay-interval->lo el.delta))))
        (snext (change-state s el.req-out li.value tnext)))
     (if (not (equal li.value req.value))
         (maybe-gstate-t-some snext)
       (maybe-gstate-t-fix nil))))
 
 (define lenv-step-oracle ((el lenv-p)
-                          (s gstate-t-p)
-                          (inf rationalp))
+                          (s gstate-t-p))
   :returns (snext maybe-gstate-t-p)
-  (maybe-gstate-merge (li-step-oracle el s inf)
-                      (req-step-oracle el s inf)))
+  (maybe-gstate-merge (li-step-oracle el s)
+                      (req-step-oracle el s)))
 
 (define ri-step-oracle ((er renv-p)
-                        (s gstate-t-p)
-                        (inf rationalp))
+                        (s gstate-t-p))
   :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          renv-sigs)
@@ -836,11 +811,11 @@
        ((sig-value ri) ri)
        (tnext1 (max s.statet
                     (+ (max req.time ack.time)
-                       (interval->lo er.delta))))
+                       (delay-interval->lo er.delta))))
        (snext1 (change-state s er.right-internal t tnext1))
        (tnext2 (max s.statet
                     (+ ri.time
-                       (* 2 (interval->lo er.delta)))))
+                       (* 2 (delay-interval->lo er.delta)))))
        (snext2 (change-state s er.right-internal nil tnext2)))
     (cond ((and req.value ack.value (not ri.value))
            (maybe-gstate-t-some snext1))
@@ -848,8 +823,7 @@
           (t (maybe-gstate-t-fix nil)))))
 
 (define ack-step-oracle ((er renv-p)
-                         (s gstate-t-p)
-                         (inf rationalp))
+                         (s gstate-t-p))
   :returns (snext maybe-gstate-t-p)
   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
                                          renv-sigs)
@@ -863,26 +837,24 @@
        ((sig-value ack) ack)
        ((sig-value ri) ri)
        (tnext (max s.statet
-                   (+ ri.time (interval->lo er.delta))))
+                   (+ ri.time (delay-interval->lo er.delta))))
        (snext (change-state s er.ack-out (not ri.value) tnext)))
     (if (equal ri.value ack.value)
         (maybe-gstate-t-some snext)
       (maybe-gstate-t-fix nil))))
 
 (define renv-step-oracle ((er renv-p)
-                          (s gstate-t-p)
-                          (inf rationalp))
+                          (s gstate-t-p))
   :returns (snext maybe-gstate-t-p)
-  (maybe-gstate-merge (ri-step-oracle er s inf)
-                      (ack-step-oracle er s inf)))
+  (maybe-gstate-merge (ri-step-oracle er s)
+                      (ack-step-oracle er s)))
 
 (define renv-lenv-step-oracle ((el lenv-p)
                                (er renv-p)
-                               (s gstate-t-p)
-                               (inf rationalp))
+                               (s gstate-t-p))
   :returns (snext maybe-gstate-t-p)
-  (maybe-gstate-merge (lenv-step-oracle el s inf)
-                      (renv-step-oracle er s inf)))
+  (maybe-gstate-merge (lenv-step-oracle el s)
+                      (renv-step-oracle er s)))
 
 (define env-distinct ((el lenv-p)
                       (er renv-p))
@@ -902,22 +874,6 @@
          (not (equal el.ack-in
                      el.req-out)))
     ))
-
-(define changed ((p sig-path-p)
-                 (prev gstate-t-p)
-                 (next gstate-t-p))
-  :returns (changed? booleanp)
-  (b* ((p (sig-path-fix p))
-       (prev (gstate-t->statev (gstate-t-fix prev)))
-       (next (gstate-t->statev (gstate-t-fix next)))
-       (prev-v (assoc-equal p (gstate-fix prev)))
-       ((unless (consp (smt::magic-fix 'sig-path_sig-value prev-v)))
-        nil)
-       (next-v (assoc-equal p (gstate-fix next)))
-       ((unless (consp (smt::magic-fix 'sig-path_sig-value next-v)))
-        nil)
-       ((if (equal prev-v next-v)) nil))
-    t))
 
 (define env-progress ((el lenv-p)
                       (er renv-p)
@@ -939,34 +895,33 @@
                 (env-connection el er)
                 (gstate-t-p s1)
                 ;; (gstate-t-p s2)
-                (rationalp inf)
                 (valid-interval (lenv->delta el))
                 (valid-interval (renv->delta er))
                 (equal (lenv->delta el)
                        (renv->delta er))
                 (env-distinct el er)
-                (invariant-env el er s1 inf)
-                ;; (invariant-env el er s2 inf)
+                (invariant-env el er s1)
+                ;; (invariant-env el er s2)
                 )
-           (and (not (equal (renv-lenv-step-oracle el er s1 inf)
+           (and (not (equal (renv-lenv-step-oracle el er s1)
                             (maybe-gstate-t-fix nil)))
                 (lenv-step el s1
                            (maybe-gstate-t-some->val
-                            (renv-lenv-step-oracle el er s1 inf))
-                           inf)
+                            (renv-lenv-step-oracle el er s1)))
                 (renv-step er s1
                            (maybe-gstate-t-some->val
-                            (renv-lenv-step-oracle el er s1 inf))
-                           inf)
+                            (renv-lenv-step-oracle el er s1)))
                 (env-progress el er s1
                               (maybe-gstate-t-some->val
-                               (renv-lenv-step-oracle el er s1 inf)))))
+                               (renv-lenv-step-oracle el er s1)))))
   :hints (("Goal"
            :smtlink
-           (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+           (:fty (lenv renv delay-interval time-interval
+                       gtrace sig-value gstate gstate-t
                        sig-path-list sig-path sig sig-target
                        asp-env-testbench asp-my-bench integer-list
-                       sig-value-list maybe-gstate-t)
+                       sig-value-list maybe-gstate-t
+                       maybe-rational)
                  :functions ((sigs-in-bool-table
                               :formals ((sigs sig-path-listp)
                                         (st gstate-p))
@@ -982,21 +937,22 @@
             (env-connection el er)
             (gstate-t-p s1)
             (gstate-t-p s2)
-            (rationalp inf)
-            (lenv-step el s1 s2 inf)
-            (renv-step er s1 s2 inf)
+            (lenv-step el s1 s2)
+            (renv-step er s1 s2)
             (valid-interval (lenv->delta el))
             (valid-interval (renv->delta er))
             (equal (lenv->delta el)
                    (renv->delta er))
             (env-distinct el er)
-            (invariant-env el er s1 inf)))
+            (invariant-env el er s1)))
    :hints (("Goal"
             :smtlink
-            (:fty (lenv renv interval gtrace sig-value gstate gstate-t
+            (:fty (lenv renv delay-interval time-interval
+                        gtrace sig-value gstate gstate-t
                         sig-path-list sig-path sig sig-target
                         asp-env-testbench asp-my-bench integer-list
-                        sig-value-list)
+                        sig-value-list maybe-gstate-t
+                        maybe-rational)
                   :functions ((sigs-in-bool-table
                                :formals ((sigs sig-path-listp)
                                          (st gstate-p))
