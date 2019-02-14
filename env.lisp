@@ -4,6 +4,7 @@
 (include-book "tools/bstar" :dir :system)
 (include-book "centaur/fty/top" :dir :system) ; for defalist, etc.
 (include-book "misc/eval" :dir :system)
+(include-book "kestrel/utilities/top" :dir :system)
 (include-book "projects/smtlink/top" :dir :system)
 (value-triple (tshell-ensure))
 (add-default-hints '((SMT::SMT-computed-hint clause)))
@@ -889,7 +890,11 @@
         (changed er.right-internal prev next)
         (changed er.ack-out prev next))))
 
-(defthm env-deadlock-free
+(define env-deadlock-free-fn ((x maybe-gstate-t-p)
+                              (el lenv-p)
+                              (er renv-p)
+                              (s1 gstate-t-p))
+  :returns (ok booleanp)
   (implies (and (lenv-p el)
                 (renv-p er)
                 (env-connection el er)
@@ -900,20 +905,28 @@
                 (equal (lenv->delta el)
                        (renv->delta er))
                 (env-distinct el er)
-                (invariant-env el er s1)
-                ;; (invariant-env el er s2)
-                )
-           (and (not (equal (renv-lenv-step-oracle el er s1)
-                            (maybe-gstate-t-fix nil)))
-                (lenv-step el s1
-                           (maybe-gstate-t-some->val
-                            (renv-lenv-step-oracle el er s1)))
-                (renv-step er s1
-                           (maybe-gstate-t-some->val
-                            (renv-lenv-step-oracle el er s1)))
-                (env-progress el er s1
-                              (maybe-gstate-t-some->val
-                               (renv-lenv-step-oracle el er s1)))))
+                (invariant-env el er s1))
+           (and (not (equal x (maybe-gstate-t-fix nil)))
+                (lenv-step el s1 (maybe-gstate-t-some->val x))
+                (renv-step er s1 (maybe-gstate-t-some->val x))
+                (env-progress el er s1 (maybe-gstate-t-some->val x)))))
+
+(defthm env-deadlock-free-instantiated
+  (implies (and (lenv-p el)
+                (renv-p er)
+                (env-connection el er)
+                (gstate-t-p s1)
+                ;; (gstate-t-p s2)
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
+                (equal (lenv->delta el)
+                       (renv->delta er))
+                (env-distinct el er)
+                (invariant-env el er s1))
+           (and (not (equal (renv-lenv-step-oracle el er s1) (maybe-gstate-t-fix nil)))
+                (lenv-step el s1 (maybe-gstate-t-some->val (renv-lenv-step-oracle el er s1)))
+                (renv-step er s1 (maybe-gstate-t-some->val (renv-lenv-step-oracle el er s1)))
+                (env-progress el er s1 (maybe-gstate-t-some->val (renv-lenv-step-oracle el er s1)))))
   :hints (("Goal"
            :smtlink
            (:fty (lenv renv delay-interval time-interval
@@ -929,6 +942,30 @@
                               :level 4))
                  :evilp t
                  ))))
+
+(defthm env-deadlock-free-instantiated-corollary
+  (env-deadlock-free-fn (renv-lenv-step-oracle el er s1) el er s1)
+  :hints (("Goal"
+           :expand (env-deadlock-free-fn
+                    (renv-lenv-step-oracle el er s1) el er s1)
+           :use ((:instance env-deadlock-free-instantiated)))))
+
+(std::define-sk
+ env-deadlock-free-sk ((el lenv-p)
+                       (er renv-p)
+                       (s1 gstate-t-p))
+ :returns (ok booleanp)
+ :verify-guards nil
+ (exists x
+         (env-deadlock-free-fn x el er s1)))
+
+(defthm env-deadlock-free
+  (env-deadlock-free-sk el er s1)
+  :hints (("Goal"
+           :in-theory (enable env-deadlock-free-fn env-deadlock-free-sk)
+           :use ((:instance env-deadlock-free-sk-suff
+                            (x (renv-lenv-step-oracle el er s1))))
+)))
 
 (acl2::must-fail
 (defthm invariant-check-contradiction

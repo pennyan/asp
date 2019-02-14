@@ -479,6 +479,4 @@
                               :returns ((ok booleanp))
                               :level 6))
                  :evilp t
-                 :smt-fname "x.py"
-                 :smt-dir "smtpy"
                  ))))
