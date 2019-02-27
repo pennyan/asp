@@ -69,9 +69,42 @@
                                 :er p.er)))
     (asp-pipeline-time-intervals p-tl)))
 
+(define env-distinct-parameterized ((n integerp)
+                                    (el lenv-p)
+                                    (er renv-p))
+  :returns (v booleanp)
+  (b* (((lenv el) (lenv-fix el))
+       ((renv er) (renv-fix er)))
+    (and (equal el.left-internal
+                (cons (make-sig :module 'sym :index n) (sig-path-fix nil)))
+         (equal er.right-internal
+                (cons (make-sig :module 'sym :index (+ n 1)) (sig-path-fix nil)))
+         (equal el.req-out
+                (cons (make-sig :module 'sym :index (+ n 2)) (sig-path-fix nil)))
+         (equal er.ack-out
+                (cons (make-sig :module 'sym :index (+ n 3)) (sig-path-fix nil))))))
+
+;; (define asp-pipeline-distinct ((n integerp)
+;;                                (p asp-pipeline-p))
+;;   :returns (ok booleanp)
+;;   :measure (len (asp-pipeline->stages p))
+;;   (b* (((asp-pipeline p) (asp-pipeline-fix p))
+;;        ((unless (consp (asp-stage-list-fix p.stages)))
+;;         (env-distinct-parameterized n p.el p.er))
+;;        ((asp-stage first) (car (asp-stage-list-fix p.stages)))
+;;        (rest (cdr (asp-stage-list-fix p.stages)))
+;;        ((unless (and (env-distinct-parameterized n p.el first.left)
+;;                      (asp-distinct-parameterized (+ n 4) p.el p.er a)))
+;;         nil)
+;;        (p-tl (make-asp-pipeline :el first.right
+;;                                 :stages rest
+;;                                 :er p.er)))
+;;     (asp-pipeline-deadlock-free p-tl s1 s2)))
+
 (define asp-pipeline-constraints ((p asp-pipeline-p))
   :returns (v booleanp)
-  (and (asp-pipeline-connections p)
+  (and ;; (asp-pipeline-distinct 0 p)
+       (asp-pipeline-connections p)
        (asp-pipeline-time-intervals p)))
 
 (define asp-stage-list-step ((al asp-stage-list-p)
@@ -113,23 +146,23 @@
                                 :er p.er)))
     (invariant-asp-pipeline p-tl s)))
 
-(defthm asp-pipeline-step-thm
-  (implies (and (asp-pipeline-p p)
-                (consp (asp-pipeline->stages p))
-                (gstate-t-p s1)
-                (gstate-t-p s2)
-                (lenv-step (asp-stage->right (car (asp-pipeline->stages p)))
-                           s1 s2)
-                (asp-stage-list-step (cdr (asp-pipeline->stages p))
-                                     s1 s2)
-                (renv-step (asp-pipeline->er p)
-                           s1 s2))
-           (asp-pipeline-step
-            (asp-pipeline (asp-stage->right (car (asp-pipeline->stages p)))
-                          (cdr (asp-pipeline->stages p))
-                          (asp-pipeline->er p))
-            s1 s2))
-  :hints (("Goal" :in-theory (e/d (asp-pipeline-step) ()))))
+;; (defthm asp-pipeline-step-thm
+;;   (implies (and (asp-pipeline-p p)
+;;                 (consp (asp-pipeline->stages p))
+;;                 (gstate-t-p s1)
+;;                 (gstate-t-p s2)
+;;                 (lenv-step (asp-stage->right (car (asp-pipeline->stages p)))
+;;                            s1 s2)
+;;                 (asp-stage-list-step (cdr (asp-pipeline->stages p))
+;;                                      s1 s2)
+;;                 (renv-step (asp-pipeline->er p)
+;;                            s1 s2))
+;;            (asp-pipeline-step
+;;             (asp-pipeline (asp-stage->right (car (asp-pipeline->stages p)))
+;;                           (cdr (asp-pipeline->stages p))
+;;                           (asp-pipeline->er p))
+;;             s1 s2))
+;;   :hints (("Goal" :in-theory (e/d (asp-pipeline-step) ()))))
 
 (defthm asp-pipeline-cdr-invariant-thm
   (implies (and (asp-pipeline-p p)
@@ -289,15 +322,14 @@
                  )))
   )
 
-(defthm asp-pipeline-hazard-free-thm-lemma
+(defthm asp-pipeline-hazard-free-thm
   (implies (and (asp-pipeline-p p)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
                 (asp-pipeline-constraints p)
                 (asp-pipeline-step p s1 s2)
 
-                (invariant-asp-pipeline p s1)
-                (invariant-asp-pipeline p s2))
+                (invariant-asp-pipeline p s1))
            (asp-pipeline-hazard-free-step p s1 s2))
   :hints (("Goal"
            :in-theory (e/d (invariant-asp-pipeline
@@ -337,12 +369,47 @@
                  (:instance crock-z3)))
           ))
 
-(defthm asp-pipeline-hazard-free-thm
-  (implies (and (asp-pipeline-p p)
-                (gstate-t-p s1)
-                (gstate-t-p s2)
-                (asp-pipeline-constraints p)
-                (asp-pipeline-step p s1 s2)
+;; -----------------------------------------------------------------
+;; (define asp-pipeline-step-oracle ((p asp-pipeline-p)
+;;                                   (s gstate-t-p))
+;;   :returns (nxt maybe-gstate-t-p)
+;;   s)
 
-                (invariant-asp-pipeline p s1))
-           (asp-pipeline-hazard-free-step p s1 s2)))
+;; (define deadlock-free-conditions ((x maybe-gstate-t-p)
+;;                                   (el lenv-p)
+;;                                   (er renv-p)
+;;                                   (s1 gstate-t-p))
+;;   :returns (ok booleanp)
+;;   (and (not (equal x (maybe-gstate-t-fix nil)))
+;;        (lenv-step el s1 (maybe-gstate-t-some->val x))
+;;        (renv-step er s1 (maybe-gstate-t-some->val x))
+;;        (env-progress el er s1 (maybe-gstate-t-some->val x))))
+
+;; (define asp-pipeline-deadlock-free ((x maybe-gstate-t-p)
+;;                                     (p asp-pipeline-p)
+;;                                     (s1 gstate-t-p))
+;;   :returns (ok booleanp)
+;;   :measure (len (asp-pipeline->stages p))
+;;   (b* (((asp-pipeline p) (asp-pipeline-fix p))
+;;        (s1 (gstate-t-fix s1))
+;;        ((unless (consp (asp-stage-list-fix p.stages)))
+;;         (deadlock-free-conditions x p.el p.er s1))
+;;        ((asp-stage first) (car (asp-stage-list-fix p.stages)))
+;;        (rest (cdr (asp-stage-list-fix p.stages)))
+;;        ((unless (and (deadlock-free-conditions x p.el first.left s1)
+;;                      (asp-pipeline-deadlock-free first s1)))
+;;         nil)
+;;        (p-tl (make-asp-pipeline :el first.right
+;;                                 :stages rest
+;;                                 :er p.er)))
+;;     (asp-pipeline-deadlock-free p-tl s1 s2)))
+
+;; (define asp-pipeline-deadlock-free
+;;   (implies (and (asp-pipeline-p p)
+;;                 (gstate-t-p s1)
+;;                 ;; (gstate-t-p s2)
+;;                 (asp-pipeline-constraints p)
+;;                 ;; (asp-pipeline-step p s1 s2)
+;;                 (invariant-asp-pipeline p s1))
+;;            (asp-pipeline-deadlock-free (asp-pipeline-step-oracle p s1) p s1))
+;;   )

@@ -862,19 +862,14 @@
   :returns (v booleanp)
   (b* (((lenv el) (lenv-fix el))
        ((renv er) (renv-fix er)))
-    (and (not (equal el.left-internal
-                     er.right-internal))
-         (not (equal el.left-internal
-                     el.req-out))
-         (not (equal el.left-internal
-                     el.ack-in))
-         (not (equal er.right-internal
-                     er.req-in))
-         (not (equal er.right-internal
-                     er.ack-out))
-         (not (equal el.ack-in
-                     el.req-out)))
-    ))
+    (and (equal el.left-internal
+                (cons (make-sig :module 'sym :index 0) (sig-path-fix nil)))
+         (equal er.right-internal
+                (cons (make-sig :module 'sym :index 1) (sig-path-fix nil)))
+         (equal el.req-out
+                (cons (make-sig :module 'sym :index 2) (sig-path-fix nil)))
+         (equal er.ack-out
+                (cons (make-sig :module 'sym :index 3) (sig-path-fix nil))))))
 
 (define env-progress ((el lenv-p)
                       (er renv-p)
@@ -965,7 +960,7 @@
            :in-theory (enable env-deadlock-free-fn env-deadlock-free-sk)
            :use ((:instance env-deadlock-free-sk-suff
                             (x (renv-lenv-step-oracle el er s1))))
-)))
+           )))
 
 (acl2::must-fail
 (defthm invariant-check-contradiction
