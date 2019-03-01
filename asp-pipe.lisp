@@ -129,6 +129,18 @@
          (renv-step p.er s1 s2)
          (asp-stage-list-step p.stages s1 s2))))
 
+(define asp-pipeline-trace ((p asp-pipeline-p)
+                            (tr gtrace-p))
+  :returns (v booleanp)
+  :measure (len tr)
+  (b* (((unless (consp (gtrace-fix tr))) t)
+       (first (car (gtrace-fix tr)))
+       (rest (cdr (gtrace-fix tr)))
+       ((unless (consp (gtrace-fix rest))) t)
+       (second (car (gtrace-fix rest))))
+    (and (asp-pipeline-step p first second)
+         (asp-pipeline-trace p rest))))
+
 (define invariant-asp-pipeline ((p asp-pipeline-p)
                                 (s gstate-t-p))
   :returns (ok booleanp)
@@ -145,6 +157,16 @@
                                 :stages rest
                                 :er p.er)))
     (invariant-asp-pipeline p-tl s)))
+
+(define invariant-asp-pipeline-trace ((p asp-pipeline-p)
+                                      (tr gtrace-p))
+  :returns (ok booleanp)
+  :measure (len tr)
+  (b* (((unless (consp (gtrace-fix tr))) t)
+       (first (car (gtrace-fix tr)))
+       (rest (cdr (gtrace-fix tr))))
+    (and (invariant-asp-pipeline p first)
+         (invariant-asp-pipeline-trace p rest))))
 
 ;; (defthm asp-pipeline-step-thm
 ;;   (implies (and (asp-pipeline-p p)
@@ -176,9 +198,7 @@
             s))
   :hints (("Goal" :in-theory (e/d (invariant-asp-pipeline) ()))))
 
-
-
-(defthm invariant-asp-pipeline-thm
+(defthm asp-pipeline-invariant-step-thm
   (implies (and (asp-pipeline-p p)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
@@ -200,6 +220,28 @@
                     (asp-pipeline-time-intervals p)
                     (asp-stage-list-step (asp-pipeline->stages p) s1 s2))
            :induct (invariant-asp-pipeline p s1))
+          ))
+
+(defthm asp-pipeline-invariant-trace-thm
+  (implies (and (asp-pipeline-p p)
+                (gtrace-p tr)
+                (consp (gtrace-fix tr))
+                (consp (gtrace-fix (cdr (gtrace-fix tr))))
+                (asp-pipeline-constraints p)
+                (asp-pipeline-trace p tr)
+
+                (invariant-asp-pipeline p (car (gtrace-fix tr))))
+           (invariant-asp-pipeline-trace p tr))
+  :hints (("Goal"
+           :in-theory (e/d (invariant-asp-pipeline-trace)
+                           ())
+           :expand ((asp-pipeline-trace p tr)
+                    (invariant-asp-pipeline-trace p tr)))
+          ("Subgoal *1/1'"
+           :use ((:instance asp-pipeline-invariant-step-thm
+                            (p p)
+                            (s1 (car tr))
+                            (s2 (car (cdr tr))))))
           ))
 
 ;; --------------------------------------------------
@@ -225,6 +267,18 @@
                                 :stages rest
                                 :er p.er)))
     (asp-pipeline-hazard-free-step p-tl s1 s2)))
+
+(define asp-pipeline-hazard-free-trace ((p asp-pipeline-p)
+                                        (tr gtrace-p))
+  :returns (ok booleanp)
+  :measure (len tr)
+  (b* (((unless (consp (gtrace-fix tr))) t)
+       (first (car (gtrace-fix tr)))
+       (rest (cdr (gtrace-fix tr)))
+       ((unless (consp (gtrace-fix rest))) t)
+       (second (car (gtrace-fix rest))))
+    (and (asp-pipeline-hazard-free-step p first second)
+         (asp-pipeline-hazard-free-trace p rest))))
 
 (defthm crock-z3
   (implies
@@ -322,7 +376,7 @@
                  )))
   )
 
-(defthm asp-pipeline-hazard-free-thm
+(defthm asp-pipeline-hazard-free-step-thm
   (implies (and (asp-pipeline-p p)
                 (gstate-t-p s1)
                 (gstate-t-p s2)
@@ -347,7 +401,7 @@
            :induct (invariant-asp-pipeline p s1)
            )
           ("Subgoal *1/3"
-           :use ((:instance env-hazard-free-thm
+           :use ((:instance env-hazard-free-step-thm
                             (el (asp-pipeline->el p))
                             (er (asp-pipeline->er p)))))
           ("Subgoal *1/1"
@@ -362,11 +416,33 @@
                             asp-stage-list-step
                             invariant-asp-pipeline)
                            ())
-           :use ((:instance env-hazard-free-thm
+           :use ((:instance env-hazard-free-step-thm
                             (el (asp-pipeline->el p))
                             (er (asp-stage->left
                                  (car (asp-pipeline->stages p)))))
                  (:instance crock-z3)))
+          ))
+
+(defthm asp-pipeline-hazard-free-trace-thm
+  (implies (and (asp-pipeline-p p)
+                (gtrace-p tr)
+                (consp (gtrace-fix tr))
+                (consp (gtrace-fix (cdr (gtrace-fix tr))))
+                (asp-pipeline-constraints p)
+                (asp-pipeline-trace p tr)
+
+                (invariant-asp-pipeline p (car (gtrace-fix tr))))
+           (asp-pipeline-hazard-free-trace p tr))
+  :hints (("Goal"
+           :in-theory (e/d (asp-pipeline-hazard-free-trace)
+                           ())
+           :expand ((asp-pipeline-trace p tr)
+                    (asp-pipeline-hazard-free-trace p tr)))
+          ("Subgoal *1/1'"
+           :use ((:instance asp-pipeline-hazard-free-step-thm
+                            (p p)
+                            (s1 (car tr))
+                            (s2 (car (cdr tr))))))
           ))
 
 ;; -----------------------------------------------------------------
