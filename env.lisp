@@ -703,37 +703,6 @@
          (renv-hazard-free-step er first second)
          (env-hazard-free-trace el er rest))))
 
-(defthm env-hazard-free-lemma
-  (implies (and (lenv-p el)
-                (renv-p er)
-                (env-connection el er)
-                (gstate-t-p s1)
-                (gstate-t-p s2)
-                (lenv-step el s1 s2)
-                (renv-step er s1 s2)
-                (valid-interval (lenv->delta el))
-                (valid-interval (renv->delta er))
-                (equal (lenv->delta el)
-                       (renv->delta er))
-                (invariant-env el er s1)
-                (invariant-env el er s2))
-           (and (lenv-hazard-free-step el s1 s2)
-                (renv-hazard-free-step er s1 s2)))
-  :hints (("Goal"
-           :smtlink
-           (:fty (lenv renv delay-interval time-interval
-                       gtrace sig-value gstate gstate-t
-                       sig-path-list sig-path sig sig-target
-                       asp-env-testbench asp-my-bench integer-list
-                       sig-value-list maybe-rational)
-                 :functions ((sigs-in-bool-table
-                              :formals ((sigs sig-path-listp)
-                                        (st gstate-p))
-                              :returns ((ok booleanp))
-                              :level 3))
-                 :evilp t
-                 ))))
-
 (defthm env-hazard-free-step-thm
   (implies (and (lenv-p el)
                 (renv-p er)
@@ -748,7 +717,42 @@
                        (renv->delta er))
                 (invariant-env el er s1))
            (and (lenv-hazard-free-step el s1 s2)
-                (renv-hazard-free-step er s1 s2))))
+                (renv-hazard-free-step er s1 s2)))
+  :hints (("Goal"
+           :in-theory (disable env-invariant-step-thm)
+           :use ((:instance env-invariant-step-thm
+                            (el el)
+                            (er er)
+                            (s1 s1)
+                            (s2 s2))))
+          ("Subgoal 2"
+           :smtlink
+           (:fty (lenv renv delay-interval time-interval
+                       gtrace sig-value gstate gstate-t
+                       sig-path-list sig-path sig sig-target
+                       asp-env-testbench asp-my-bench integer-list
+                       sig-value-list maybe-rational)
+                 :functions ((sigs-in-bool-table
+                              :formals ((sigs sig-path-listp)
+                                        (st gstate-p))
+                              :returns ((ok booleanp))
+                              :level 3))
+                 :evilp t
+                 ))
+          ("Subgoal 1"
+           :smtlink
+           (:fty (lenv renv delay-interval time-interval
+                       gtrace sig-value gstate gstate-t
+                       sig-path-list sig-path sig sig-target
+                       asp-env-testbench asp-my-bench integer-list
+                       sig-value-list maybe-rational)
+                 :functions ((sigs-in-bool-table
+                              :formals ((sigs sig-path-listp)
+                                        (st gstate-p))
+                              :returns ((ok booleanp))
+                              :level 3))
+                 :evilp t
+                 ))))
 
 (defthm env-hazard-free-trace-thm
   (implies (and (lenv-p el)
@@ -772,7 +776,7 @@
                     (renv-valid er tr)
                     (env-hazard-free-trace el er tr)))
           ("Subgoal *1/1'"
-           :use ((:instance env-hazard-free-lemma
+           :use ((:instance env-hazard-free-step-thm
                             (el el)
                             (er er)
                             (s1 (car tr))

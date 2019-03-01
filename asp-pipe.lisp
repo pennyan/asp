@@ -280,7 +280,7 @@
     (and (asp-pipeline-hazard-free-step p first second)
          (asp-pipeline-hazard-free-trace p rest))))
 
-(defthm crock-z3
+(defthm asp-pipeline-hazard-free-lemma
   (implies
    (and (lenv-hazard-free-step (asp-pipeline->el p)
                                s1 s2)
@@ -420,7 +420,7 @@
                             (el (asp-pipeline->el p))
                             (er (asp-stage->left
                                  (car (asp-pipeline->stages p)))))
-                 (:instance crock-z3)))
+                 (:instance asp-pipeline-hazard-free-lemma)))
           ))
 
 (defthm asp-pipeline-hazard-free-trace-thm
