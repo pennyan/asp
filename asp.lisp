@@ -290,193 +290,193 @@
                 (asp-stage-hazard-free-step a s1 s2))))
 
 ;; --------------------------------------------------
-;; (define fi-step-oracle ((a asp-stage-p)
-;;                         (s gstate-t-p))
-;;   :returns (snext maybe-gstate-t-p)
-;;   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
-;;                                          asp-sigs
-;;                                          change-state)
-;;                                         ())))
-;;   (b* (((asp-stage a) (asp-stage-fix a))
-;;        ((gstate-t s) s)
-;;        ((unless (sigs-in-bool-table (asp-sigs a) s.statev))
-;;         (maybe-gstate-t-fix nil))
-;;        (fi (state-get a.full-internal s.statev))
-;;        (gf (state-get a.go-full s.statev))
-;;        (em (state-get a.empty s.statev))
-;;        (ge (state-get a.go-empty s.statev))
-;;        (fl (state-get a.full s.statev))
-;;        ((sig-value fi) fi)
-;;        ((sig-value gf) gf)
-;;        ((sig-value em) em)
-;;        ((sig-value ge) ge)
-;;        ((sig-value fl) fl)
-;;        (tnext1 (max s.statet
-;;                     (+ (max gf.time em.time)
-;;                        (delay-interval->lo a.delta))))
-;;        (snext1 (change-state s a.full-internal t tnext1))
-;;        (tnext2 (max s.statet
-;;                     (+ (max ge.time fl.time)
-;;                        (delay-interval->lo a.delta))))
-;;        (snext2 (change-state s a.full-internal nil tnext2)))
-;;     (cond ((and gf.value em.value (not fi.value)) (maybe-gstate-t-some snext1))
-;;           ((and ge.value fl.value fi.value) (maybe-gstate-t-some snext2))
-;;           (t (maybe-gstate-t-fix nil)))))
+(define fi-step-oracle ((a asp-stage-p)
+                        (s gstate-t-p))
+  :returns (snext maybe-gstate-t-p)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         asp-sigs
+                                         change-state)
+                                        ())))
+  (b* (((asp-stage a) (asp-stage-fix a))
+       ((gstate-t s) s)
+       ((unless (sigs-in-bool-table (asp-sigs a) s.statev))
+        (maybe-gstate-t-fix nil))
+       (fi (state-get a.full-internal s.statev))
+       (gf (state-get a.go-full s.statev))
+       (em (state-get a.empty s.statev))
+       (ge (state-get a.go-empty s.statev))
+       (fl (state-get a.full s.statev))
+       ((sig-value fi) fi)
+       ((sig-value gf) gf)
+       ((sig-value em) em)
+       ((sig-value ge) ge)
+       ((sig-value fl) fl)
+       (tnext1 (max s.statet
+                    (+ (max gf.time em.time)
+                       (delay-interval->lo a.delta))))
+       (snext1 (change-state s a.full-internal t tnext1))
+       (tnext2 (max s.statet
+                    (+ (max ge.time fl.time)
+                       (delay-interval->lo a.delta))))
+       (snext2 (change-state s a.full-internal nil tnext2)))
+    (cond ((and gf.value em.value (not fi.value)) (maybe-gstate-t-some snext1))
+          ((and ge.value fl.value fi.value) (maybe-gstate-t-some snext2))
+          (t (maybe-gstate-t-fix nil)))))
 
-;; (define full-step-oracle ((a asp-stage-p)
-;;                           (s gstate-t-p))
-;;   :returns (snext maybe-gstate-t-p)
-;;   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
-;;                                          asp-sigs)
-;;                                         ())))
-;;   (b* (((asp-stage a) (asp-stage-fix a))
-;;        ((gstate-t s) s)
-;;        ((unless (sigs-in-bool-table (asp-sigs a) s.statev))
-;;         (maybe-gstate-t-fix nil))
-;;        (fi (state-get a.full-internal s.statev))
-;;        (fl (state-get a.full s.statev))
-;;        ((sig-value fi) fi)
-;;        ((sig-value fl) fl)
-;;        (tnext (max s.statet
-;;                    (+ fi.time (delay-interval->lo a.delta))))
-;;        (snext (change-state s a.full fi.value tnext)))
-;;     (if (not (equal fi.value fl.value))
-;;         (maybe-gstate-t-some snext)
-;;       (maybe-gstate-t-fix nil))))
+(define full-step-oracle ((a asp-stage-p)
+                          (s gstate-t-p))
+  :returns (snext maybe-gstate-t-p)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         asp-sigs)
+                                        ())))
+  (b* (((asp-stage a) (asp-stage-fix a))
+       ((gstate-t s) s)
+       ((unless (sigs-in-bool-table (asp-sigs a) s.statev))
+        (maybe-gstate-t-fix nil))
+       (fi (state-get a.full-internal s.statev))
+       (fl (state-get a.full s.statev))
+       ((sig-value fi) fi)
+       ((sig-value fl) fl)
+       (tnext (max s.statet
+                   (+ fi.time (delay-interval->lo a.delta))))
+       (snext (change-state s a.full fi.value tnext)))
+    (if (not (equal fi.value fl.value))
+        (maybe-gstate-t-some snext)
+      (maybe-gstate-t-fix nil))))
 
-;; (define empty-step-oracle ((a asp-stage-p)
-;;                            (s gstate-t-p))
-;;   :returns (snext maybe-gstate-t-p)
-;;   :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
-;;                                          asp-sigs)
-;;                                         ())))
-;;   (b* (((asp-stage a) (asp-stage-fix a))
-;;        ((gstate-t s) s)
-;;        ((unless (sigs-in-bool-table (asp-sigs a) s.statev))
-;;         (maybe-gstate-t-fix nil))
-;;        (fi (state-get a.full-internal s.statev))
-;;        (em (state-get a.empty s.statev))
-;;        ((sig-value fi) fi)
-;;        ((sig-value em) em)
-;;        (tnext (max s.statet
-;;                    (+ fi.time (delay-interval->lo a.delta))))
-;;        (snext (change-state s a.empty (not fi.value) tnext)))
-;;     (if (equal fi.value em.value)
-;;         (maybe-gstate-t-some snext)
-;;       (maybe-gstate-t-fix nil))))
+(define empty-step-oracle ((a asp-stage-p)
+                           (s gstate-t-p))
+  :returns (snext maybe-gstate-t-p)
+  :guard-hints (("Goal" :in-theory (e/d (sigs-in-bool-table
+                                         asp-sigs)
+                                        ())))
+  (b* (((asp-stage a) (asp-stage-fix a))
+       ((gstate-t s) s)
+       ((unless (sigs-in-bool-table (asp-sigs a) s.statev))
+        (maybe-gstate-t-fix nil))
+       (fi (state-get a.full-internal s.statev))
+       (em (state-get a.empty s.statev))
+       ((sig-value fi) fi)
+       ((sig-value em) em)
+       (tnext (max s.statet
+                   (+ fi.time (delay-interval->lo a.delta))))
+       (snext (change-state s a.empty (not fi.value) tnext)))
+    (if (equal fi.value em.value)
+        (maybe-gstate-t-some snext)
+      (maybe-gstate-t-fix nil))))
 
-;; ;; This is my first attempt at providing a witness for asp-stage-step.
-;; ;; This attempt isn't correct, because it proposes a change on
-;; ;; full-internal that either is allowed by left of asp-stage and disallowed
-;; ;; by right of asp-stage; or one that's allowed by the right but not by the
-;; ;; left. The correct proposer should disable such changes.
-;; ;; It's a pity because I don't get to use this below succinct (or lazy) way
-;; ;; of proposing next state then.
-;; ;; (maybe-gstate-merge (lenv-step-oracle a.right s inf)
-;; ;;                     (renv-step-oracle a.left s inf))
-;; (define asp-stage-step-oracle ((a asp-stage-p)
-;;                                (s gstate-t-p))
-;;   :returns (snext maybe-gstate-t-p)
-;;   (maybe-gstate-merge (empty-step-oracle a s)
-;;                       (maybe-gstate-merge (fi-step-oracle a s)
-;;                                           (full-step-oracle a s))))
+;; This is my first attempt at providing a witness for asp-stage-step.
+;; This attempt isn't correct, because it proposes a change on
+;; full-internal that either is allowed by left of asp-stage and disallowed
+;; by right of asp-stage; or one that's allowed by the right but not by the
+;; left. The correct proposer should disable such changes.
+;; It's a pity because I don't get to use this below succinct (or lazy) way
+;; of proposing next state then.
+;; (maybe-gstate-merge (lenv-step-oracle a.right s inf)
+;;                     (renv-step-oracle a.left s inf))
+(define asp-stage-step-oracle ((a asp-stage-p)
+                               (s gstate-t-p))
+  :returns (snext maybe-gstate-t-p)
+  (maybe-gstate-merge (empty-step-oracle a s)
+                      (maybe-gstate-merge (fi-step-oracle a s)
+                                          (full-step-oracle a s))))
 
-;; (define asp-step-oracle ((el lenv-p)
-;;                          (er renv-p)
-;;                          (a asp-stage-p)
-;;                          (s gstate-t-p))
-;;   :returns (snext maybe-gstate-t-p)
-;;   (maybe-gstate-merge (asp-stage-step-oracle a s)
-;;                       (maybe-gstate-merge (lenv-step-oracle el s)
-;;                                           (renv-step-oracle er s))))
+(define asp-step-oracle ((el lenv-p)
+                         (er renv-p)
+                         (a asp-stage-p)
+                         (s gstate-t-p))
+  :returns (snext maybe-gstate-t-p)
+  (maybe-gstate-merge (asp-stage-step-oracle a s)
+                      (maybe-gstate-merge (lenv-step-oracle el s)
+                                          (renv-step-oracle er s))))
 
-;; (define asp-progress ((el lenv-p)
-;;                       (er renv-p)
-;;                       (a asp-stage-p)
-;;                       (prev gstate-t-p)
-;;                       (next gstate-t-p))
-;;   :returns (pro? booleanp)
-;;   (b* ((el (lenv-fix el))
-;;        ((lenv el) el)
-;;        (er (renv-fix er))
-;;        ((renv er) er)
-;;        (a (asp-stage-fix a))
-;;        ((asp-stage a) a))
-;;     (or (changed el.left-internal prev next)
-;;         (changed el.req-out prev next)
-;;         (changed er.right-internal prev next)
-;;         (changed er.ack-out prev next)
-;;         (changed a.full-internal prev next)
-;;         (changed a.empty prev next)
-;;         (changed a.full prev next))))
+(define asp-progress ((el lenv-p)
+                      (er renv-p)
+                      (a asp-stage-p)
+                      (prev gstate-t-p)
+                      (next gstate-t-p))
+  :returns (pro? booleanp)
+  (b* ((el (lenv-fix el))
+       ((lenv el) el)
+       (er (renv-fix er))
+       ((renv er) er)
+       (a (asp-stage-fix a))
+       ((asp-stage a) a))
+    (or (changed el.left-internal prev next)
+        (changed el.req-out prev next)
+        (changed er.right-internal prev next)
+        (changed er.ack-out prev next)
+        (changed a.full-internal prev next)
+        (changed a.empty prev next)
+        (changed a.full prev next))))
 
-;; (define asp-distinct ((el lenv-p)
-;;                       (er renv-p)
-;;                       (a asp-stage-p))
-;;   :returns (v booleanp)
-;;   (b* (((lenv el) (lenv-fix el))
-;;        ((renv er) (renv-fix er))
-;;        ((asp-stage a) (asp-stage-fix a)))
-;;     (and (equal el.left-internal
-;;                 (cons (make-sig :module 'sym :index 0) (sig-path-fix nil)))
-;;          (equal er.right-internal
-;;                 (cons (make-sig :module 'sym :index 1) (sig-path-fix nil)))
-;;          (equal a.empty
-;;                 (cons (make-sig :module 'sym :index 2) (sig-path-fix nil)))
-;;          (equal a.go-full
-;;                 (cons (make-sig :module 'sym :index 3) (sig-path-fix nil)))
-;;          (equal a.full-internal
-;;                 (cons (make-sig :module 'sym :index 4) (sig-path-fix nil)))
-;;          (equal a.full
-;;                 (cons (make-sig :module 'sym :index 5) (sig-path-fix nil)))
-;;          (equal a.go-empty
-;;                 (cons (make-sig :module 'sym :index 6) (sig-path-fix nil))))))
+(define asp-distinct ((el lenv-p)
+                      (er renv-p)
+                      (a asp-stage-p))
+  :returns (v booleanp)
+  (b* (((lenv el) (lenv-fix el))
+       ((renv er) (renv-fix er))
+       ((asp-stage a) (asp-stage-fix a)))
+    (and (equal el.left-internal
+                (cons (make-sig :module 'sym :index 0) (sig-path-fix nil)))
+         (equal er.right-internal
+                (cons (make-sig :module 'sym :index 1) (sig-path-fix nil)))
+         (equal a.empty
+                (cons (make-sig :module 'sym :index 2) (sig-path-fix nil)))
+         (equal a.go-full
+                (cons (make-sig :module 'sym :index 3) (sig-path-fix nil)))
+         (equal a.full-internal
+                (cons (make-sig :module 'sym :index 4) (sig-path-fix nil)))
+         (equal a.full
+                (cons (make-sig :module 'sym :index 5) (sig-path-fix nil)))
+         (equal a.go-empty
+                (cons (make-sig :module 'sym :index 6) (sig-path-fix nil))))))
 
-;; (defthm asp-deadlock-free
-;;   (implies (and (asp-stage-p a)
-;;                 (lenv-p el)
-;;                 (renv-p er)
-;;                 (asp-internal-connection a)
-;;                 (asp-connection a el er)
-;;                 (gstate-t-p s1)
-;;                 (gstate-t-p s2)
-;;                 (valid-interval (asp-stage->delta a))
-;;                 (valid-interval (lenv->delta el))
-;;                 (valid-interval (renv->delta er))
-;;                 (equal (asp-stage->delta a)
-;;                        (lenv->delta el))
-;;                 (equal (asp-stage->delta a)
-;;                        (renv->delta er))
-;;                 (asp-distinct el er a)
-;;                 (invariant-asp-stage a el er s1)
-;;                 (invariant-asp-stage a el er s2)
-;;                 )
-;;            (and (not (equal (asp-step-oracle el er a s1)
-;;                             (maybe-gstate-t-fix nil)))
-;;                 (lenv-step el s1
-;;                            (maybe-gstate-t-some->val
-;;                             (asp-step-oracle el er a s1)))
-;;                 (renv-step er s1
-;;                            (maybe-gstate-t-some->val
-;;                             (asp-step-oracle el er a s1)))
-;;                 (asp-step a s1
-;;                           (maybe-gstate-t-some->val
-;;                            (asp-step-oracle el er a s1)))
-;;                 (asp-progress el er a s1
-;;                               (maybe-gstate-t-some->val
-;;                                (asp-step-oracle el er a s1)))))
-;;   :hints (("Goal"
-;;            :smtlink
-;;            (:fty (asp-stage lenv renv time-interval delay-interval
-;;                             gtrace sig-value gstate gstate-t
-;;                             sig-path-list sig-path sig sig-target
-;;                             asp-env-testbench asp-my-bench integer-list
-;;                             sig-value-list maybe-gstate-t
-;;                             maybe-rational)
-;;                  :functions ((sigs-in-bool-table
-;;                               :formals ((sigs sig-path-listp)
-;;                                         (st gstate-p))
-;;                               :returns ((ok booleanp))
-;;                               :level 6))
-;;                  :evilp t
-;;                  ))))
+(defthm asp-deadlock-free
+  (implies (and (asp-stage-p a)
+                (lenv-p el)
+                (renv-p er)
+                (asp-internal-connection a)
+                (asp-connection a el er)
+                (gstate-t-p s1)
+                (gstate-t-p s2)
+                (valid-interval (asp-stage->delta a))
+                (valid-interval (lenv->delta el))
+                (valid-interval (renv->delta er))
+                (equal (asp-stage->delta a)
+                       (lenv->delta el))
+                (equal (asp-stage->delta a)
+                       (renv->delta er))
+                (asp-distinct el er a)
+                (invariant-asp-stage a el er s1)
+                (invariant-asp-stage a el er s2)
+                )
+           (and (not (equal (asp-step-oracle el er a s1)
+                            (maybe-gstate-t-fix nil)))
+                (lenv-step el s1
+                           (maybe-gstate-t-some->val
+                            (asp-step-oracle el er a s1)))
+                (renv-step er s1
+                           (maybe-gstate-t-some->val
+                            (asp-step-oracle el er a s1)))
+                (asp-step a s1
+                          (maybe-gstate-t-some->val
+                           (asp-step-oracle el er a s1)))
+                (asp-progress el er a s1
+                              (maybe-gstate-t-some->val
+                               (asp-step-oracle el er a s1)))))
+  :hints (("Goal"
+           :smtlink
+           (:fty (asp-stage lenv renv time-interval delay-interval
+                            gtrace sig-value gstate gstate-t
+                            sig-path-list sig-path sig sig-target
+                            asp-env-testbench asp-my-bench integer-list
+                            sig-value-list maybe-gstate-t
+                            maybe-rational)
+                 :functions ((sigs-in-bool-table
+                              :formals ((sigs sig-path-listp)
+                                        (st gstate-p))
+                              :returns ((ok booleanp))
+                              :level 6))
+                 :evilp t
+                 ))))
