@@ -1,3 +1,9 @@
+;; Copyright (C) 2018, University of British Columbia
+;; Written by Yan Peng (Oct 2018)
+;;
+;; License: A 3-clause BSD license.
+;; See the LICENSE file distributed with this software
+;;
 (in-package "ASP")
 
 ;; easy-fix is a macro for defining a fty::deffixtype when we've got a

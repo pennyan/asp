@@ -1,3 +1,10 @@
+# Copyright (C) 2018, University of British Columbia
+# Written by Yan Peng (Oct 2018)
+#
+# License: A 3-clause BSD license.
+# See the LICENSE file distributed with this software
+#
+
 import x
 from z3 import IntSort, RealSort, Select, simplify, Solver, Not, sat, unsat, unknown
 import re
